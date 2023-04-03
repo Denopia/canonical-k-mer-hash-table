@@ -14,12 +14,12 @@ RollingHasherDual::RollingHasherDual(uint64_t q, uint64_t m)
     std::cout << "Hash table size: " << q << "\n";
     std::cout << "Modular multiplicative inverse: " << this->di << "\n";
     bpc = 2;
-    character_mask = uint64_t(3);
+    character_mask = 3ULL;
     current_hash_forward = 0;
     current_hash_backward = 0;
     hashed_count = 0;
     h = 1;
-    for (int i = 0; i < m-1; i++)
+    for (uint64_t i = 0; i < m-1; i++)
         h = (h*d)%q;
 }
 
@@ -29,7 +29,7 @@ void RollingHasherDual::update_rolling_hash_in(uint64_t in)
     
     // Alternative reverse update version
     uint64_t reverse_add = twobitstringfunctions::reverse_int(in);
-    for (int i = 0; i < hashed_count; i++)
+    for (uint64_t i = 0; i < hashed_count; i++)
         reverse_add = (reverse_add*d) % q;
      current_hash_backward = (current_hash_backward + reverse_add) % q;
     // Original reverse update version

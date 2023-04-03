@@ -1,8 +1,7 @@
 #include <vector>
-#include <math.h>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
-//#include "kmer.hpp"
 #include "functions_strings.hpp"
 
 #pragma once
@@ -37,24 +36,28 @@ class KMerFactoryCanonical2BC
         
 
         // Constructor
-        KMerFactoryCanonical2BC(uint64_t k);
+        explicit KMerFactoryCanonical2BC(int k);
 
         // Destructor
         ~KMerFactoryCanonical2BC();
 
+    //TODO you can inline the functions below by moving their
+    // definitions here and inserting the "inline" annotation.
+    // Inlining should improve the performance
+
         // Check if the number of stored characters is equal to k
-        bool current_kmer_is_real();
+        [[nodiscard]] bool current_kmer_is_real() const;
 
         // Find out if the forward version of the current k-mer is canonical
-        bool forward_kmer_is_canonical();
+        [[nodiscard]] bool forward_kmer_is_canonical() const;
 
         // Find out if the forward version of the previous k-mer was canonical
-        bool previous_forward_kmer_was_canonical();
+        [[nodiscard]] bool previous_forward_kmer_was_canonical() const;
 
-        bool previous_kmer_existed();
+        [[nodiscard]] bool previous_kmer_existed() const;
 
         // Return the number of stored characters
-        int get_number_of_stored_characters();
+        [[nodiscard]] int get_number_of_stored_characters() const;
 
         // Resets the factory
         void reset();
@@ -67,33 +70,31 @@ class KMerFactoryCanonical2BC
 
         // Return the leftmost character of the leftmost block
         // This is also the oldest character
-        uint64_t get_forward_leftmost_character();
+        [[nodiscard]] uint64_t get_forward_leftmost_character() const;
 
         // Return the rightmost character of the rightmost block
         // This is also the newest character
-        uint64_t get_forward_rightmost_character();
+        [[nodiscard]] uint64_t get_forward_rightmost_character() const;
 
         // Returns the character that was most recently pushed off from the leftmost block
         // aka the character on the left from the leftmost character
-        uint64_t get_forward_pushed_off_character();
+        [[nodiscard]] uint64_t get_forward_pushed_off_character() const;
 
-        uint64_t get_forward_newest_character();
+        [[nodiscard]] uint64_t get_forward_newest_character() const;
 
-        uint64_t get_forward_block(uint64_t i);
+        [[nodiscard]] uint64_t get_forward_block(uint64_t i) const;
 
-        uint64_t get_backward_block(uint64_t i);
+        [[nodiscard]] uint64_t get_backward_block(uint64_t i) const;
 
-        uint64_t get_rightmost_forward_block();
+        [[nodiscard]] uint64_t get_rightmost_forward_block() const;
 
-        uint64_t get_rightmost_backward_block();
+        [[nodiscard]] uint64_t get_rightmost_backward_block() const;
 
-        uint64_t get_canonical_block(uint64_t i);
+        [[nodiscard]] uint64_t get_canonical_block(uint64_t i) const;
 
-        uint64_t get_noncanonical_block(uint64_t i);
+        [[nodiscard]] uint64_t get_noncanonical_block(uint64_t i) const;
 
-        uint64_t get_forward_char_at_position(int i);
+        [[nodiscard]] uint64_t get_forward_char_at_position(int i) const;
 
-        uint64_t get_backward_char_at_position(int i);
-
-
+        [[nodiscard]] uint64_t get_backward_char_at_position(int i) const;
 };
