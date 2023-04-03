@@ -101,9 +101,11 @@ struct parse_input{
         auto hash_kmers =[&](chunk_type& chunk, size_t format){
 
             off_t i =0, last;
+            size_t n_strings=0;
 
             switch (format) {
                 case PLAIN://one-string-per-line format
+
                     assert(chunk.syms_in_buff>=k);
 
                     while(i<k){
@@ -113,12 +115,12 @@ struct parse_input{
 
                     //slide a window over the buffer
                     while(i<chunk.syms_in_buff){
-
                         if(chunk.buffer[i]=='\n'){//we consumed a string
                             last = i+k; //rightmost position of the kmer in the prefix of the next string
                             for(off_t u=i+1;u<=last;u++){
                                  //TODO compute the fingerprint from scratch for the next string
                             }
+                            n_strings++;
                         }else{
                             //TODO update the fingerprint
                         }
@@ -126,6 +128,7 @@ struct parse_input{
                         //TODO hash the kmer
                         i++;
                     }
+
                     break;
                 case FASTA: //fasta formta
                     //TODO
@@ -144,31 +147,31 @@ struct parse_input{
 
         //lambda function that gets chunks from the IN queue and calls the hash_kmers lambda
         //we feed this function to std::thread
-        auto string_worker = [&](){
+        auto string_worker = [&](size_t worker_id){
 
             size_t buff_id;
             bool res;
-            //size_t consumed_kmers = 0;
+            size_t consumed_kmers = 0;
 
             while(true){
                 res = in_queue.pop(buff_id);//the thread will wait until there is something to pop
                 assert(text_chunks[buff_id].bytes>0);
                 if(!res) break;
                 hash_kmers(text_chunks[buff_id], format);
-                //consumed_kmers+=text_chunks[buff_id].syms_in_buff-k+1;
+                consumed_kmers+=text_chunks[buff_id].syms_in_buff-k+1;
                 out_queue.push(buff_id);//the thread will wait until the stack is free to push
             }
 
-            /*{
+            {//TODO just testing
                 std::unique_lock lck(mtx);
-                std::cout<<"This thread consumed "<<consumed_kmers<<" kmers "<<std::endl;
-            }*/
+                std::cout<<"Thread "<<worker_id<<" consumed "<<consumed_kmers<<" kmers "<<std::endl;
+            }
         };
 
         std::vector<std::thread> threads;
         threads.emplace_back(io_worker);
         for(size_t i=0;i<n_threads;i++){
-            threads.emplace_back(string_worker);
+            threads.emplace_back(string_worker, i);
         }
 
         for(auto & thread : threads){

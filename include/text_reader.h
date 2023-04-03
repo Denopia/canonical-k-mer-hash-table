@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <zlib.h>
+#include <cassert>
 
 template<class sym_t>
 struct text_chunk {
