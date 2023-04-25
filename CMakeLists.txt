@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.10)
 project(KMerHashtable)
 
 # specify the C++ standard
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 #set(CMAKE_CXX_STANDARD_REQUIRED True)
 #set(EXTRA_INCLUDES include)
 
@@ -14,7 +14,8 @@ add_executable(kht main.cpp
         source/functions_strings.cpp
         source/kmer_factory.cpp
         source/functions_math.cpp
-        source/program_runs.cpp
+        source/functions_kmer_mod.cpp
+        #source/program_runs.cpp
         source/kmer.cpp
         source/kmer_hash_table.cpp)
 

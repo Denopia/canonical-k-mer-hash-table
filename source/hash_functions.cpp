@@ -11,8 +11,8 @@ RollingHasherDual::RollingHasherDual(uint64_t q, uint64_t m)
     this->m = m;
     this->d = 7;
     this->di = mathfunctions::modular_multiplicative_inverse(d, q);
-    std::cout << "Hash table size: " << q << "\n";
-    std::cout << "Modular multiplicative inverse: " << this->di << "\n";
+    //std::cout << "Hash table size: " << q << "\n";
+    //std::cout << "Modular multiplicative inverse: " << this->di << "\n";
     bpc = 2;
     character_mask = 3ULL;
     current_hash_forward = 0;

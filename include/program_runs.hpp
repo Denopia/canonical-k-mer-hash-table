@@ -12,4 +12,4 @@
 
 
 // Mode for canonical hash table
-int run_mode_1(int argc, char const* argv[]);
+//nt run_mode_1(int argc, char const* argv[]);

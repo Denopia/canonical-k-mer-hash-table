@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdint>
+#include <bitset>
 
 #pragma once
 
@@ -34,6 +35,8 @@ namespace twobitstringfunctions
     uint64_t char2int(char c);
 
     char int2char(uint64_t c);
+
+    char int2char_small(uint8_t c);
 
     uint64_t reverse_int(uint64_t c);
 
