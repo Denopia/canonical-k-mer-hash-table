@@ -19,6 +19,7 @@ struct text_chunk {
     off_t bytes{}; //max. number of bytes that can be loaded in the chunk
     sym_t * buffer = nullptr; //buffer containing chunk data
     off_t syms_in_buff{}; //number of elements in the buffer
+    bool broken_header=false;//bool indicating if in the previous chunk there was a line break after the rightmost header symbol
 
     ~text_chunk(){
         if(buffer!= nullptr){
@@ -32,13 +33,14 @@ struct text_chunk {
     }
 };
 
-template<class text_chunk_t>
+template<class text_chunk_t,
+         typename sym_t = typename text_chunk_t::sym_type>
 off_t read_chunk_from_gz_file(gzFile gfd, // file descriptor
                               text_chunk_t& chunk, // reference to the chunk struct were the data will be stored
                               off_t rem_text_bytes, // number of remaining bytes in the file
-                              off_t k) { //reposition the file k positions back (for the kmers)
-
-    using sym_t = typename text_chunk_t::sym_type;
+                              off_t k,
+                              bool& next_has_broken_header,
+                              sym_t start_symbol) { //reposition the file k positions back (for the kmers)
 
     off_t chunk_bytes = chunk.bytes<rem_text_bytes ? chunk.bytes : rem_text_bytes;
     chunk.bytes = chunk_bytes;
@@ -63,6 +65,17 @@ off_t read_chunk_from_gz_file(gzFile gfd, // file descriptor
 
     chunk.syms_in_buff =  acc_bytes/sym_bytes;
 
+    if(start_symbol!=0){
+        next_has_broken_header = true;
+        size_t i = chunk.syms_in_buff;
+        while(i-->0 && chunk.buffer[i]!=start_symbol){
+            if(chunk.buffer[i]=='\n'){
+                next_has_broken_header = false;
+                break;
+            }
+        }
+    }
+
     gzseek(gfd, k*-1, SEEK_CUR);
     acc_bytes-=k;
     rem_text_bytes-=acc_bytes;
@@ -73,13 +86,14 @@ off_t read_chunk_from_gz_file(gzFile gfd, // file descriptor
     return rem_text_bytes;
 }
 
-template<class text_chunk_t>
+template<class text_chunk_t,
+         typename sym_t = typename text_chunk_t::sym_type>
 off_t read_chunk_from_file(int fd, // file descriptor
                           text_chunk_t& chunk, // reference to the chunk struct were the data will be stored
                           off_t rem_text_bytes, // number of remaining bytes in the file
-                          off_t k) { //reposition the file description k-1 positions back (for the kmers)
-
-    using sym_t = typename text_chunk_t::sym_type;
+                          off_t k, //reposition the file description k-1 positions back (for the kmers)
+                          bool &next_has_broken_header,
+                          sym_t start_symbol=0) {
 
     off_t chunk_bytes = chunk.bytes<rem_text_bytes ? chunk.bytes : rem_text_bytes;
     chunk.bytes = chunk_bytes;
@@ -103,11 +117,21 @@ off_t read_chunk_from_file(int fd, // file descriptor
     }
 
     chunk.syms_in_buff =  acc_bytes/sym_bytes;
+
+    if(start_symbol!=0){
+        next_has_broken_header = true;
+        size_t i = chunk.syms_in_buff;
+        while(i-->0 && chunk.buffer[i]!=start_symbol){
+            if(chunk.buffer[i]=='\n'){
+                next_has_broken_header = false;
+                break;
+            }
+        }
+    }
+
     lseek(fd, k*-1, SEEK_CUR);
     acc_bytes-=k;
     rem_text_bytes-=acc_bytes;
-
-    //std::cout<<acc_bytes<<" "<<rem_text_bytes<<" "<<chunk.syms_in_buff<<" "<<sym_bytes<<std::endl;
 
     assert(chunk_bytes==0);
 

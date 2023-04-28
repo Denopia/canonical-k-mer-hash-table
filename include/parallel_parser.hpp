@@ -220,7 +220,7 @@ struct parse_input_atomic_flag{
 
     
 
-    void operator()(std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k, uint64_t min_slots, uint64_t min_abundance){
+    void operator()(std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k, sym_type start_symbol, uint64_t min_slots, uint64_t min_abundance){
 
         auto start_building = std::chrono::high_resolution_clock::now();
         // Create the hash table
@@ -263,6 +263,7 @@ struct parse_input_atomic_flag{
             size_t chunk_id=0;
             text_chunks.resize(active_chunks);
             off_t tmp_ck_size;
+            bool broken_header=false;
 
             while(chunk_id<active_chunks && rem_bytes>=k){
 
@@ -270,11 +271,12 @@ struct parse_input_atomic_flag{
                 text_chunks[chunk_id].bytes = tmp_ck_size;
                 text_chunks[chunk_id].buffer = (sym_type *)malloc(tmp_ck_size);
                 text_chunks[chunk_id].id = chunk_id;
+                text_chunks[chunk_id].broken_header = broken_header;
 
                 if constexpr (is_gzipped){
-                    rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[chunk_id], rem_bytes, k-1);
+                    rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[chunk_id], rem_bytes, k-1, broken_header, start_symbol);
                 }else{
-                    rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[chunk_id], rem_bytes, k-1);
+                    rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[chunk_id], rem_bytes, k-1, broken_header, start_symbol);
                 }
                 in_queue.push(chunk_id);//as soon as we push, the chunks become visible of the worker threads to consume them
                 chunk_id++;
@@ -286,9 +288,9 @@ struct parse_input_atomic_flag{
                 text_chunks[buff_idx].id = chunk_id++;
 
                 if constexpr (is_gzipped){
-                    rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[buff_idx], rem_bytes, k-1);
+                    rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[buff_idx], rem_bytes, k-1, broken_header, start_symbol);
                 }else{
-                    rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[buff_idx], rem_bytes, k-1);
+                    rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[buff_idx], rem_bytes, k-1, broken_header, start_symbol);
                 }
                 in_queue.push(buff_idx);
             }
@@ -614,10 +616,11 @@ struct parse_input_pointer_atomic_flag{
 
     
 
-    void operator()(std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k, uint64_t min_slots, uint64_t min_abundance){
+    void operator()(std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k, sym_type start_symbol, uint64_t min_slots, uint64_t min_abundance){
 
         bool print_times = false;
         auto start_building = std::chrono::high_resolution_clock::now();
+
         // Create the hash table
         uint64_t ht_size = mathfunctions::next_prime(min_slots);
         uint64_t kmer_len = k;
@@ -659,6 +662,7 @@ struct parse_input_pointer_atomic_flag{
             size_t chunk_id=0;
             text_chunks.resize(active_chunks);
             off_t tmp_ck_size;
+            bool broken_header=false;
 
             while(chunk_id<active_chunks && rem_bytes>=k){
 
@@ -666,11 +670,12 @@ struct parse_input_pointer_atomic_flag{
                 text_chunks[chunk_id].bytes = tmp_ck_size;
                 text_chunks[chunk_id].buffer = (sym_type *)malloc(tmp_ck_size);
                 text_chunks[chunk_id].id = chunk_id;
+                text_chunks[chunk_id].broken_header = broken_header;
 
                 if constexpr (is_gzipped){
-                    rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[chunk_id], rem_bytes, k-1);
+                    rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[chunk_id], rem_bytes, k-1, broken_header, start_symbol);
                 }else{
-                    rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[chunk_id], rem_bytes, k-1);
+                    rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[chunk_id], rem_bytes, k-1, broken_header, start_symbol);
                 }
                 in_queue.push(chunk_id);//as soon as we push, the chunks become visible of the worker threads to consume them
                 chunk_id++;
@@ -682,9 +687,9 @@ struct parse_input_pointer_atomic_flag{
                 text_chunks[buff_idx].id = chunk_id++;
 
                 if constexpr (is_gzipped){
-                    rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[buff_idx], rem_bytes, k-1);
+                    rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[buff_idx], rem_bytes, k-1, broken_header, start_symbol);
                 }else{
-                    rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[buff_idx], rem_bytes, k-1);
+                    rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[buff_idx], rem_bytes, k-1, broken_header, start_symbol);
                 }
                 in_queue.push(buff_idx);
             }
@@ -838,7 +843,8 @@ struct parse_input_pointer_atomic_variable{
 
     
 
-    void operator()(std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k, uint64_t min_slots, uint64_t min_abundance){
+    void operator()(std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k,
+                    sym_type start_symbol, uint64_t min_slots, uint64_t min_abundance){
 
         bool print_times = true;
         bool print_other_stuff = false;
@@ -884,6 +890,8 @@ struct parse_input_pointer_atomic_variable{
             size_t chunk_id=0;
             text_chunks.resize(active_chunks);
             off_t tmp_ck_size;
+            bool broken_header=false;
+
 
             while(chunk_id<active_chunks && rem_bytes>=k){
 
@@ -891,11 +899,11 @@ struct parse_input_pointer_atomic_variable{
                 text_chunks[chunk_id].bytes = tmp_ck_size;
                 text_chunks[chunk_id].buffer = (sym_type *)malloc(tmp_ck_size);
                 text_chunks[chunk_id].id = chunk_id;
-
+                text_chunks[chunk_id].broken_header = broken_header;
                 if constexpr (is_gzipped){
-                    rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[chunk_id], rem_bytes, k-1);
+                    rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[chunk_id], rem_bytes, k-1, broken_header, start_symbol);
                 }else{
-                    rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[chunk_id], rem_bytes, k-1);
+                    rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[chunk_id], rem_bytes, k-1, broken_header, start_symbol);
                 }
                 in_queue.push(chunk_id);//as soon as we push, the chunks become visible of the worker threads to consume them
                 chunk_id++;
@@ -907,9 +915,9 @@ struct parse_input_pointer_atomic_variable{
                 text_chunks[buff_idx].id = chunk_id++;
 
                 if constexpr (is_gzipped){
-                    rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[buff_idx], rem_bytes, k-1);
+                    rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[buff_idx], rem_bytes, k-1, broken_header, start_symbol);
                 }else{
-                    rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[buff_idx], rem_bytes, k-1);
+                    rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[buff_idx], rem_bytes, k-1, broken_header, start_symbol);
                 }
                 in_queue.push(buff_idx);
             }
