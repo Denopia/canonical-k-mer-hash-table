@@ -12,7 +12,7 @@ int main(int argc, char const* argv[])
 {
     // Canonical hash table mode
     //run_mode_1(argc, argv);
-    if(argc!=8){
+    if(argc!=9){
         std::cout<<"Some error"<<std::endl;
         exit(0);
     }
@@ -23,8 +23,8 @@ int main(int argc, char const* argv[])
 
     //settings for the file buffers
     size_t n_threads= stoi(std::string(argv[4]));//number of threads
-    size_t active_chunks = 10; //number of chunks in the buffer
-    off_t chunk_size = 1024*1024*10; //size in bytes for every chunk
+    size_t active_chunks = 20; //number of chunks in the buffer
+    off_t chunk_size = 1024*1024*5; //size in bytes for every chunk
 
     std::string input_file = std::string(argv[7]);
     std::string output_file = std::string(argv[6]);
@@ -48,30 +48,54 @@ int main(int argc, char const* argv[])
     else
         mode = -1;
 
-    
+    uint8_t header_symbol = 0;
+
+    // Default, plain
+    int input_mode;
+    if (stoi(std::string(argv[8])) == 0){
+        input_mode=0;
+        header_symbol = '>';
+    }
+    else if (stoi(std::string(argv[8])) == 1){
+        input_mode=-1;
+        header_symbol = '@';
+    }
+    else if (stoi(std::string(argv[8])) == 2){
+        input_mode=2;
+        // No header symbol
+        header_symbol = 0;
+    }
+    else {
+        input_mode = -1;
+    }
+        
+    if (input_mode == -1){
+        std::cout << "Input file format must be defined. 0 = FASTA, 2 = PLAIN";
+        return 0;
+    }
 
     if (mode == 0)
     {
         if(is_gzipped){
-            parse_input_atomic_flag<uint8_t, true>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, min_slots, min_abundance);
+            parse_input_atomic_flag<uint8_t, true>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode);
         }else{
-            parse_input_atomic_flag<uint8_t, false>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, min_slots, min_abundance);
+            parse_input_atomic_flag<uint8_t, false>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode);
         }    
     }
     else if (mode == 1)
     {
         if(is_gzipped){
-            parse_input_pointer_atomic_flag<uint8_t, true>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, min_slots, min_abundance);
+            parse_input_pointer_atomic_flag<uint8_t, true>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode);
         }else{
-            parse_input_pointer_atomic_flag<uint8_t, false>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, min_slots, min_abundance);
+            parse_input_pointer_atomic_flag<uint8_t, false>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode);
         }
     }
     else if (mode == 2)
     {
         if(is_gzipped){
-            parse_input_pointer_atomic_variable<uint8_t, true>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, min_slots, min_abundance);
+            parse_input_pointer_atomic_variable<uint8_t, true>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode);
         }else{
-            parse_input_pointer_atomic_variable<uint8_t, false>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, min_slots, min_abundance);
+            parse_input_pointer_atomic_variable<uint8_t, false>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode);
         }
     }
     else

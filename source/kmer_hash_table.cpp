@@ -2352,11 +2352,12 @@ uint64_t PointerHashTableCanonicalAV::process_kmer_MT(KMerFactoryCanonical2BC* k
             bool this_is_the_correct_slot = false;
             // Quick check result is sotred here, initialize to "unsure"
             quick_result = 0;
-            if (predecessor_exists && hash_table_array[kmer_slot].predecessor_exists() && false)
+            if (predecessor_exists && hash_table_array[kmer_slot].predecessor_exists())
             {
                 quick_result = quick_kmer_slot_check_sus(kmer_factory, kmer_slot, predecessor_slot);
                 if (quick_result == 1)
                 {
+                    //std::cout << "Quick check success\n";
                     this_is_the_correct_slot = true;
                 }
             }
@@ -2577,7 +2578,7 @@ uint64_t PointerHashTableCanonicalAV::find_and_increment(KMerFactoryCanonical2BC
         hash_table_array[kmer_slot].increase_count();
         
         // Move k-mer pointer from secondary array to main
-        if(predecessor_exists && !hash_table_array[kmer_slot].predecessor_exists() && false)
+        if(predecessor_exists && !hash_table_array[kmer_slot].predecessor_exists())
         {
             // First, lock the secondary array
             while(secondary_lock.test_and_set(std::memory_order_acquire));

@@ -54,7 +54,7 @@ struct parse_input_ORIGINAL{
         if(stat(input_file.c_str(), &st) != 0)  return;
 
         size_t format = PLAIN; //manage to get the input format
-        std::mutex mtx; //just for debugging (you can remove it afterwards)
+        //std::mutex mtx; //just for debugging (you can remove it afterwards)
 
         //lambda function that manages IO operations
         //we feed this function to std::thread
@@ -180,10 +180,12 @@ struct parse_input_ORIGINAL{
                 out_queue.push(buff_id);//the thread will wait until the stack is free to push
             }
 
+            /*
             {//TODO just testing
                 std::unique_lock lck(mtx);
                 std::cout<<"Thread "<<worker_id<<" consumed "<<consumed_kmers<<" kmers "<<std::endl;
             }
+            */
         };
 
         std::vector<std::thread> threads;
@@ -214,13 +216,16 @@ struct parse_input_ORIGINAL{
 // ==============================================================================================================
 // ATOMIC FLAG VERSION of BASIC HASH TABLE
 // ==============================================================================================================
+
 template<class sym_type,
          bool is_gzipped=false>
 struct parse_input_atomic_flag{
 
     
 
-    void operator()(std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k, sym_type start_symbol, uint64_t min_slots, uint64_t min_abundance){
+    void operator()(std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k, sym_type start_symbol, uint64_t min_slots, uint64_t min_abundance, int input_mode=2){
+
+        std::cout << "Starting atomic flag basic hash table\n";
 
         auto start_building = std::chrono::high_resolution_clock::now();
         // Create the hash table
@@ -247,8 +252,19 @@ struct parse_input_atomic_flag{
         struct stat st{};
         if(stat(input_file.c_str(), &st) != 0)  return;
 
-        size_t format = PLAIN; //manage to get the input format
-        std::mutex mtx; //just for debugging (you can remove it afterwards)
+        size_t format; //manage to get the input format
+        
+        if (input_mode == 2)
+            format = PLAIN;
+        else if (input_mode == 0)
+            format = FASTA;
+        else
+        {
+            std::cout << "Input file format not supported.";
+            return;
+        }   
+            
+        //std::mutex mtx; //just for debugging (you can remove it afterwards)
 
         //lambda function that manages IO operations
         //we feed this function to std::thread
@@ -528,10 +544,242 @@ struct parse_input_atomic_flag{
                     std::cout << "Chunk done\n";
                     break;
                 }
-                case FASTA: //fasta formta
-                    //TODO
-                    std::cout<<"Not implemented yet"<<std::endl;
+                case FASTA: 
+                {
+                    int kmer_bytes = kmer_len / 4;
+                    if (kmer_len % 4 != 0)
+                        kmer_bytes += 1;
+                    // Characters in last block
+                    int fbmc = kmer_len % 4;
+                    if (fbmc == 0)
+                        fbmc = 4;
+                    // Store k-mer as string here
+                    //std::vector<uint64_t> kmer_string(kmer_blocks,0);
+                    uint8_t* kmer_string = new uint8_t[kmer_bytes];
+                    uint8_t* kmer_string_reverse = new uint8_t[kmer_bytes];
+                    int lshift = kmer_len % 4;
+                    int rshift = 4 - lshift;  
+                    // Store k-mer hash value here
+                    uint64_t kmer_hash = 0;
+                    // Store number of characters stored in the k-mer here
+                    uint64_t chars_in_kmer = 0;
+                    // Mask for relevant characters in the last k-mer block
+                    uint8_t first_block_mask = 0;
+                    // New character goes here
+                    uint8_t new_char = 0;
+                    // Character that drops out the window goes here
+                    uint64_t drop_out_char = 0;
+                    uint64_t current_check_slot = 0;
+                    bool kmer_was_found = false;
+                    bool forward_is_canonical = true;
+
+                    for (int mi = 0; mi < fbmc; mi++)
+                    {
+                        first_block_mask = first_block_mask << 2;
+                        first_block_mask = first_block_mask | uint8_t(3);
+                    }
+
+                    assert(chunk.syms_in_buff>=k);
+                    bool parsing_header = chunk.broken_header;
+                    //slide a window over the buffer
+                    while(i<chunk.syms_in_buff){
+                        // If the current character is header starting character, reset read buffer
+                        //--------------------------------------------------------------------------------------------------------------------------------
+                        //--------------------------------------------------------------------------------------------------------------------------------
+                        if (chunk.buffer[i]=='>')
+                        {
+                            kmer_hash = 0;
+                            for (int ii = 0; ii < kmer_bytes; ii++)
+                                kmer_string[ii] = 0;
+                            chars_in_kmer = 0;
+                            n_strings++;
+                            rolling_hasher->reset();
+                            parsing_header = true;
+                        }
+                        if (parsing_header)
+                        {
+                            while((chunk.buffer[i]!='\n') && (i<chunk.syms_in_buff))
+                                i++;
+                            i++;
+                            parsing_header = false;
+                            continue;
+                        }
+                        // If the next character is newline, skip it
+                        if (chunk.buffer[i]=='\n')
+                        {
+                            i++;
+                            continue;
+                        }
+                        //--------------------------------------------------------------------------------------------------------------------------------
+                        //--------------------------------------------------------------------------------------------------------------------------------
+                        new_char =  uint8_t(twobitstringfunctions::char2int(chunk.buffer[i]));
+                        if(new_char > uint8_t(3)){//we encountered non-(A,C,G,T) character
+                            kmer_hash = 0;
+                            //std::fill(kmer_string.begin(), kmer_string.end(), 0);
+                            for (int ii = 0; ii < kmer_bytes; ii++)
+                                kmer_string[ii] = 0;
+                            chars_in_kmer = 0;
+                            n_strings++;
+                            rolling_hasher->reset();
+                        } else {
+                            // First get the drop out char
+                            //std::cout << "NEW CHAR IS : " << new_char << "\n";
+                            //std::cout << "NEW CHAR after shift IS : " << (new_char<<62) << "\n";
+
+                            drop_out_char = uint64_t((kmer_string[0] >> 2*(fbmc-1)) & uint8_t(3));
+                            //std::cout << "K-MER STRING IS: " << (kmer_string[0] >> 2*28) << "\n";
+                            //std::cout << "DROP PUT CHAR IS: " << drop_out_char << "\n";
+                            // Update k-mer string
+                            for (int ci = 0; ci < kmer_bytes-1; ci++)
+                            {
+                                kmer_string[ci] <<= 2;
+                                kmer_string[ci] |= (kmer_string[ci+1] >> 6);
+                            }
+                            kmer_string[0] &= first_block_mask;
+                            kmer_string[kmer_bytes-1] <<=2;
+                            kmer_string[kmer_bytes-1] |= new_char;
+
+                            // Update hash value
+                            rolling_hasher->update_rolling_hash(new_char, drop_out_char);
+                            chars_in_kmer = std::min(chars_in_kmer+1, kmer_len);
+                                                        
+                            // Build reverse k-mer
+                            // I) Swap bytes and characters within bytes
+                            for (int ci = 0; ci < kmer_bytes; ci++)
+                            {
+                                kmer_string_reverse[ci] = ((kmer_string[kmer_bytes-1-ci] & uint8_t(240)) >> 4) | ((kmer_string[kmer_bytes-1-ci] & uint8_t(15)) << 4);
+                                kmer_string_reverse[ci] = ((kmer_string_reverse[ci] & uint8_t(204)) >> 2) | ((kmer_string_reverse[ci] & uint8_t(51)) << 2);
+                            }
+                            // II) Shift bytes
+                            if (lshift != 0)
+                            {
+                                for (int ci = kmer_bytes-1; ci > 0; ci--)
+                                {
+                                    kmer_string_reverse[ci] = ((kmer_string_reverse[ci] >> 2*rshift) | (kmer_string_reverse[ci-1] << 2*lshift));
+                                }
+                                kmer_string_reverse[0] = kmer_string_reverse[0] >> 2*rshift;    
+                            }
+                            // III) And complement characters
+                            for (int ci = 0; ci < kmer_bytes; ci++)
+                            {
+                                kmer_string_reverse[ci] = ~kmer_string_reverse[ci];
+                            }
+                            kmer_string_reverse[0] &= first_block_mask;
+
+                            //std::cout << "Forward : " << std::bitset<8>(kmer_string[0]) << " " <<  std::bitset<8>(kmer_string[1]) << " " << std::bitset<8>(kmer_string[2]) << "\n";
+                            //std::cout << "Reverse : " << std::bitset<8>(kmer_string_reverse[0])<< " " << std::bitset<8>(kmer_string_reverse[1])<< " " << std::bitset<8>(kmer_string_reverse[2]) << "\n";
+                        
+                            // Determine correct orientation
+                            kmer_hash = rolling_hasher->get_current_hash_forward();
+                            forward_is_canonical = true;
+                            
+                            for (int icc = 0; icc < kmer_bytes; icc++)
+                            {
+                                if (kmer_string_reverse[icc] < kmer_string[icc])
+                                {
+                                    forward_is_canonical = false;
+                                    kmer_hash = rolling_hasher->get_current_hash_backward();
+                                    break;
+                                }
+                                else if (kmer_string_reverse[icc] > kmer_string[icc])
+                                {
+                                    break;
+                                }
+                            }
+                            // Insert the k-mer in the hash table
+                            current_check_slot = kmer_hash;
+                            kmer_was_found = false;
+                            uint64_t probing_round = 0;
+                            bool slot_is_in_use = false;
+                            bool handled_successfully = false;
+                            if (chars_in_kmer >= k)
+                            {
+                                if (forward_is_canonical)
+                                {
+                                    while(true)
+                                    {
+                                        probing_round=1;
+                                        // First, acquire the lock
+                                        while (basic_atomic_hash_table_long->kmer_locks[current_check_slot].test_and_set(std::memory_order_acquire));
+                                        // Then, check the k-mer
+                                        // If count == 0, no k-mer -> insert as new
+                                        if (basic_atomic_hash_table_long->counts[current_check_slot] == 0)
+                                        {
+                                            basic_atomic_hash_table_long->counts[current_check_slot] = 1;
+                                            std::memcpy(&(basic_atomic_hash_table_long->kmer_array[kmer_bytes*current_check_slot]), kmer_string, kmer_bytes);
+                                            basic_atomic_hash_table_long->kmer_locks[current_check_slot].clear(std::memory_order_release);
+                                            break;
+                                        }
+                                        // k-mer exists in the slot, check if it matches
+                                        // If match, k-mer was found
+                                        else if (std::memcmp(&(basic_atomic_hash_table_long->kmer_array[kmer_bytes*current_check_slot]), kmer_string, kmer_bytes) == 0)
+                                        {
+                                            // Increase count and done
+                                            basic_atomic_hash_table_long->counts[current_check_slot] += 1;
+                                            basic_atomic_hash_table_long->kmer_locks[current_check_slot].clear(std::memory_order_release);
+                                            break;
+                                        }
+                                        // Otherwise, probe to next position
+                                        else
+                                        {
+                                            basic_atomic_hash_table_long->kmer_locks[current_check_slot].clear(std::memory_order_release);
+                                            current_check_slot = current_check_slot + (probing_round*probing_round);
+                                            current_check_slot = current_check_slot % ht_size;
+                                            if (current_check_slot == kmer_hash)
+                                            {
+                                                std::cout << "Hash table is full... Cannot handle this yet\n";
+                                                return;
+                                            }
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    while(true)
+                                    {
+                                        probing_round=1;
+                                        // First, acquire the lock
+                                        while (basic_atomic_hash_table_long->kmer_locks[current_check_slot].test_and_set(std::memory_order_acquire));
+                                        // Then, check the k-mer
+                                        // If count == 0, no k-mer -> insert as new
+                                        if (basic_atomic_hash_table_long->counts[current_check_slot] == 0)
+                                        {
+                                            basic_atomic_hash_table_long->counts[current_check_slot] = 1;
+                                            std::memcpy(&(basic_atomic_hash_table_long->kmer_array[kmer_bytes*current_check_slot]), kmer_string_reverse, kmer_bytes);
+                                            basic_atomic_hash_table_long->kmer_locks[current_check_slot].clear(std::memory_order_release);
+                                            break;
+                                        }
+                                        // k-mer exists in the slot, check if it matches
+                                        // If match, k-mer was found
+                                        else if (std::memcmp(&(basic_atomic_hash_table_long->kmer_array[kmer_bytes*current_check_slot]), kmer_string_reverse, kmer_bytes) == 0)
+                                        {
+                                            // Increase count and done
+                                            basic_atomic_hash_table_long->counts[current_check_slot] += 1;
+                                            basic_atomic_hash_table_long->kmer_locks[current_check_slot].clear(std::memory_order_release);
+                                            break;
+                                        }
+                                        // Otherwise, probe to next position
+                                        else
+                                        {
+                                            basic_atomic_hash_table_long->kmer_locks[current_check_slot].clear(std::memory_order_release);
+                                            current_check_slot = current_check_slot + (probing_round*probing_round);
+                                            current_check_slot = current_check_slot % ht_size;
+                                            if (current_check_slot == kmer_hash)
+                                            {
+                                                std::cout << "Hash table is full... Cannot handle this yet\n";
+                                                return;
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                            }
+                        }
+                        i++;
+                    }
+                    std::cout << "Chunk done\n";
                     break;
+                }
                 case FASTQ: //fastq format
                     //TODO
                     std::cout<<"Not implemented yet"<<std::endl;
@@ -561,10 +809,12 @@ struct parse_input_atomic_flag{
                 out_queue.push(buff_id);//the thread will wait until the stack is free to push
             }
 
+            /*
             {//TODO just testing
                 std::unique_lock lck(mtx);
                 std::cout<<"Thread "<<worker_id<<" consumed "<<consumed_kmers<<" kmers "<<std::endl;
             }
+            */
         };
 
         std::vector<std::thread> threads;
@@ -616,7 +866,9 @@ struct parse_input_pointer_atomic_flag{
 
     
 
-    void operator()(std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k, sym_type start_symbol, uint64_t min_slots, uint64_t min_abundance){
+    void operator()(std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k, sym_type start_symbol, uint64_t min_slots, uint64_t min_abundance, int input_mode=2){
+
+        std::cout << "Starting atomic flag pointer hash table\n";
 
         bool print_times = false;
         auto start_building = std::chrono::high_resolution_clock::now();
@@ -646,8 +898,17 @@ struct parse_input_pointer_atomic_flag{
         struct stat st{};
         if(stat(input_file.c_str(), &st) != 0)  return;
 
-        size_t format = PLAIN; //manage to get the input format
-        std::mutex mtx; //just for debugging (you can remove it afterwards)
+        size_t format; //manage to get the input format
+        if (input_mode == 2)
+            format = PLAIN;
+        else if (input_mode == 0)
+            format = FASTA;
+        else
+        {
+            std::cout << "Input file format not supported.";
+            return;
+        }   
+        //std::mutex mtx; //just for debugging (you can remove it afterwards)
 
         //lambda function that manages IO operations
         //we feed this function to std::thread
@@ -757,10 +1018,66 @@ struct parse_input_pointer_atomic_flag{
                     std::cout << "Chunk done\n";
                     break;
                 }
-                case FASTA: //fasta formta
-                    //TODO
-                    std::cout<<"Not implemented yet"<<std::endl;
+                case FASTA:
+                {
+                    bool predecessor_kmer_exists = false;
+                    uint64_t predecessor_kmer_slot = ht_size;
+                    uint64_t new_char = 0;
+                    uint64_t current_kmer_slot = ht_size;
+                    bool parsing_header = chunk.broken_header;
+                    assert(chunk.syms_in_buff>=k);
+                    //slide a window over the buffer
+                    while(i<chunk.syms_in_buff){
+                        // If the current character is header starting character, reset read buffer
+                        if (chunk.buffer[i]=='>')
+                        {
+                            //std::cout << "New read\n";
+                            kmer_factory->reset();
+                            rolling_hasher->reset();
+                            predecessor_kmer_exists = false;
+                            predecessor_kmer_slot = ht_size;
+                            parsing_header = true;
+                        }
+                        if (parsing_header)
+                        {
+                            while((chunk.buffer[i]!='\n') && (i<chunk.syms_in_buff))
+                                i++;
+                            i++;
+                            parsing_header = false;
+                            continue;
+                        }
+                        // If the next character is newline, skip it
+                        if (chunk.buffer[i]=='\n')
+                        {
+                            i++;
+                            continue;
+                        }
+                        new_char =  uint64_t(twobitstringfunctions::char2int(chunk.buffer[i]));
+                        if (new_char > 3ULL)
+                            kmer_factory->reset();
+                        else
+                            kmer_factory->push_new_integer(new_char);
+                        if (kmer_factory->get_number_of_stored_characters() == 0)
+                        {
+                            rolling_hasher->reset();
+                            predecessor_kmer_exists = false;
+                            predecessor_kmer_slot = ht_size;
+                        }
+                        else
+                        {
+                            rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
+                        }
+                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
+                        {
+                            current_kmer_slot = hash_table->process_kmer(kmer_factory, rolling_hasher, predecessor_kmer_exists, predecessor_kmer_slot); 
+                            predecessor_kmer_exists = true;
+                            predecessor_kmer_slot = current_kmer_slot;
+                        }
+                        i++;
+                    }
+                    std::cout << "Chunk done\n";
                     break;
+                }
                 case FASTQ: //fastq format
                     //TODO
                     std::cout<<"Not implemented yet"<<std::endl;
@@ -791,10 +1108,12 @@ struct parse_input_pointer_atomic_flag{
                 out_queue.push(buff_id);//the thread will wait until the stack is free to push
             }
 
+            /*
             {//TODO just testing
                 std::unique_lock lck(mtx);
                 std::cout<<"Thread "<<worker_id<<" consumed "<<consumed_kmers<<" kmers "<<std::endl;
             }
+            */
         };
 
         std::vector<std::thread> threads;
@@ -837,6 +1156,7 @@ struct parse_input_pointer_atomic_flag{
 // ==============================================================================================================
 // ATOMIC VARIABLES VERSION
 // ==============================================================================================================
+
 template<class sym_type,
          bool is_gzipped=false>
 struct parse_input_pointer_atomic_variable{
@@ -844,10 +1164,12 @@ struct parse_input_pointer_atomic_variable{
     
 
     void operator()(std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k,
-                    sym_type start_symbol, uint64_t min_slots, uint64_t min_abundance){
+                    sym_type start_symbol, uint64_t min_slots, uint64_t min_abundance, int input_mode=2){
+
+        std::cout << "Starting atomic variable pointer hash table\n";
 
         bool print_times = true;
-        bool print_other_stuff = false;
+        bool print_other_stuff = true;
         auto start_building = std::chrono::high_resolution_clock::now();
         // Create the hash table
         uint64_t ht_size = mathfunctions::next_prime(min_slots);
@@ -874,8 +1196,17 @@ struct parse_input_pointer_atomic_variable{
         struct stat st{};
         if(stat(input_file.c_str(), &st) != 0)  return;
 
-        size_t format = PLAIN; //manage to get the input format
-        std::mutex mtx; //just for debugging (you can remove it afterwards)
+        size_t format; //manage to get the input format
+        if (input_mode == 2)
+            format = PLAIN;
+        else if (input_mode == 0)
+            format = FASTA;
+        else
+        {
+            std::cout << "Input file format not supported.";
+            return;
+        }   
+        //std::mutex mtx; //just for debugging (you can remove it afterwards)
 
         //lambda function that manages IO operations
         //we feed this function to std::thread
@@ -903,8 +1234,17 @@ struct parse_input_pointer_atomic_variable{
                 if constexpr (is_gzipped){
                     rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[chunk_id], rem_bytes, k-1, broken_header, start_symbol);
                 }else{
+                    //if (broken_header)
+                    //    std::cout << "Header is broken before check\n";
+                    //else
+                    //    std::cout << "Header not broken before check\n";
                     rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[chunk_id], rem_bytes, k-1, broken_header, start_symbol);
+                    //if (broken_header)
+                    //    std::cout << "Header is broken after check\n";
+                    //else
+                    //    std::cout << "Header not broken after check\n";
                 }
+                //std::cout << "\n";
                 in_queue.push(chunk_id);//as soon as we push, the chunks become visible of the worker threads to consume them
                 chunk_id++;
             }
@@ -913,7 +1253,7 @@ struct parse_input_pointer_atomic_variable{
             while(rem_bytes>=k){
                 out_queue.pop(buff_idx);//it will wait until out_strings contains something
                 text_chunks[buff_idx].id = chunk_id++;
-
+                text_chunks[buff_idx].broken_header = broken_header;
                 if constexpr (is_gzipped){
                     rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[buff_idx], rem_bytes, k-1, broken_header, start_symbol);
                 }else{
@@ -988,9 +1328,74 @@ struct parse_input_pointer_atomic_variable{
                     break;
                 }
                 case FASTA: //fasta formta
-                    //TODO
-                    std::cout<<"Not implemented yet"<<std::endl;
+                {
+                    bool predecessor_kmer_exists = false;
+                    uint64_t predecessor_kmer_slot = ht_size;
+                    uint64_t new_char = 0;
+                    uint64_t current_kmer_slot = ht_size;
+                    assert(chunk.syms_in_buff>=k);
+                    bool parsing_header = chunk.broken_header;
+                    //if (parsing_header)
+                        //std::cout << "\n\n !!!!!!!!!!!!!!!!!!!!! Chunk starts with broken header !!!!!!!!!!!!!!!!!!!!! \n\n\n";
+                    //slide a window over the buffer
+                    while(i<chunk.syms_in_buff){
+                        // If we are parsing buffer, get to the next line
+                        
+                        // If the current character is header starting character, reset read buffer
+                        if (chunk.buffer[i]=='>')
+                        {
+                            //std::cout << "New read\n";
+                            kmer_factory->reset();
+                            rolling_hasher->reset();
+                            predecessor_kmer_exists = false;
+                            predecessor_kmer_slot = ht_size;
+                            parsing_header = true;
+                        }
+                        if (parsing_header)
+                        {
+                            while((chunk.buffer[i]!='\n') && (i<chunk.syms_in_buff))
+                                i++;
+                            i++;
+                            parsing_header = false;
+                            continue;
+                        }
+                        // If the next character is newline, skip it
+                        if (chunk.buffer[i]=='\n')
+                        {
+                            i++;
+                            continue;
+                        }
+                        new_char =  uint64_t(twobitstringfunctions::char2int(chunk.buffer[i]));
+                        if (new_char > 3ULL)
+                        {
+                            std::cout << "sus reset at chunk position " << i << "\n";
+                            kmer_factory->reset();
+                        }
+                        else
+                            kmer_factory->push_new_integer(new_char);
+                        if (kmer_factory->get_number_of_stored_characters() == 0)
+                        {
+                            rolling_hasher->reset();
+                            predecessor_kmer_exists = false;
+                            predecessor_kmer_slot = ht_size;
+                        }
+                        else
+                        {
+                            rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
+                        }
+                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
+                        {
+                            //current_kmer_slot = hash_table->process_kmer(kmer_factory, rolling_hasher, predecessor_kmer_exists, predecessor_kmer_slot); 
+                            current_kmer_slot = hash_table->process_kmer_MT(kmer_factory, rolling_hasher, predecessor_kmer_exists, predecessor_kmer_slot); 
+                            predecessor_kmer_exists = true;
+                            predecessor_kmer_slot = current_kmer_slot;
+                        }
+                        i++;
+                    }
+                    if (print_other_stuff)
+                        std::cout << "Chunk done\n";
                     break;
+                }
                 case FASTQ: //fastq format
                     //TODO
                     std::cout<<"Not implemented yet"<<std::endl;
@@ -1021,11 +1426,13 @@ struct parse_input_pointer_atomic_variable{
                 out_queue.push(buff_id);//the thread will wait until the stack is free to push
             }
 
+            /*
             if (print_other_stuff)
             {//TODO just testing
                 std::unique_lock lck(mtx);
                 std::cout<<"Thread "<<worker_id<<" consumed "<<consumed_kmers<<" kmers "<<std::endl;
             }
+            */
         };
 
         std::vector<std::thread> threads;
@@ -1052,7 +1459,6 @@ struct parse_input_pointer_atomic_variable{
         if (min_abundance > 0)
             hash_table->write_kmers_on_disk_separately_even_faster(min_abundance, output_file);
         auto end_writing = std::chrono::high_resolution_clock::now();
-        delete hash_table;
 
         if (print_times)
         {
@@ -1061,9 +1467,20 @@ struct parse_input_pointer_atomic_variable{
             std::cout << "Time used to build hash table: " << build_duration.count() << " microseconds\n";
             std::cout << "Time used to write k-mers in a file: " << writing_duration.count() << " microseconds\n";
         }
-        
+        if (print_other_stuff)
+        {
+            uint64_t used_slots = 0;
+            for (uint64_t cc = 0; cc < ht_size; cc++)
+            {
+                if (hash_table->slot_is_occupied(cc))
+                    used_slots+=1;
+            }
+            
+            std::cout << "Main array slots used " << used_slots << " / " << ht_size << "\n";
+            std::cout << "Max secondary array slots used " << hash_table->get_max_number_of_secondary_slots_in_use() << "\n";
+        }
+        delete hash_table;
     }
-    
 };
 
 #endif //PARALLEL_PARSING_PARALLEL_PARSER_HPP

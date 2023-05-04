@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <zlib.h>
 #include <cassert>
+#include <iostream>
+
 
 template<class sym_t>
 struct text_chunk {
@@ -119,15 +121,21 @@ off_t read_chunk_from_file(int fd, // file descriptor
     chunk.syms_in_buff =  acc_bytes/sym_bytes;
 
     if(start_symbol!=0){
+        //std::cout << "Checking header for symbol " << start_symbol <<  "\n";
         next_has_broken_header = true;
-        size_t i = chunk.syms_in_buff;
+        size_t i = chunk.syms_in_buff - (k-1);
         while(i-->0 && chunk.buffer[i]!=start_symbol){
             if(chunk.buffer[i]=='\n'){
+                //std::cout << "Newline found, not broken header\n";
                 next_has_broken_header = false;
                 break;
             }
         }
+    } else {
+        //std::cout << "No header checking\n";
     }
+    //if (next_has_broken_header)
+    //    std::cout << "\nHEADER IS BROKEN\n\n";
 
     lseek(fd, k*-1, SEEK_CUR);
     acc_bytes-=k;

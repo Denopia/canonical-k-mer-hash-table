@@ -52,6 +52,7 @@ namespace purestringfunctions
 namespace twobitstringfunctions
 {
 
+    
     uint64_t char2int(char c)
     {
         if (c == 'A' || c == 'a'){return 0ULL;}
