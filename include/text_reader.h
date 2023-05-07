@@ -117,28 +117,71 @@ off_t read_chunk_from_file(int fd, // file descriptor
         chunk_bytes-=read_bytes;
         acc_bytes+=read_bytes;
     }
+    
+    //std::cout << "----------------------------------------------------------------\n";
+    //std::cout << "acc bytes 1 = " << acc_bytes << "\n";
+    //std::cout << "chunk bytes bytes = " << chunk_bytes << "\n";
 
     chunk.syms_in_buff =  acc_bytes/sym_bytes;
 
+    off_t fake_symbols = 0;
+    off_t real_symbols = 0;
+    off_t si = chunk.syms_in_buff-1;
+
+    //std::cout << "FAKE SYMBOLS = " << fake_symbols << "\n";
+
     if(start_symbol!=0){
-        //std::cout << "Checking header for symbol " << start_symbol <<  "\n";
+        // First, check how many "fake symbols" i.e. newline symbols are encountered 
+        // starting from the end of the text chunk until k-1 "real" symbols are seen.
+        // This is only relevant for fasta files since they allow newline characters in the middle of a read sequence(?)
+        if (start_symbol == '>')
+        {
+            while(real_symbols < k && si > 0)
+            {
+                if (chunk.buffer[si] != '\n')
+                    real_symbols++;
+                else
+                    fake_symbols++;
+                si--;
+            }
+        }
+        
+        // Next, check if the text chunk ends with a header.
+        // Skip the last k-1 characters to avoid weird behavior(??)
         next_has_broken_header = true;
-        size_t i = chunk.syms_in_buff - (k-1);
-        while(i-->0 && chunk.buffer[i]!=start_symbol){
+        size_t i = chunk.syms_in_buff - 1 - k - fake_symbols; 
+        //size_t i = chunk.syms_in_buff;
+        //while(i-->0 && chunk.buffer[i]!=start_symbol){
+        while(i > 0 && chunk.buffer[i]!=start_symbol){
             if(chunk.buffer[i]=='\n'){
                 //std::cout << "Newline found, not broken header\n";
                 next_has_broken_header = false;
                 break;
             }
+            i--;
         }
     } else {
         //std::cout << "No header checking\n";
     }
+
+    // If the number of characters in the text chunk minus newline characters 
+    // is less than k the chunk does not contain a full k-mer
+    if (acc_bytes-fake_symbols < k+1){
+        rem_text_bytes = 0;
+        return rem_text_bytes;
+    }
+
     //if (next_has_broken_header)
     //    std::cout << "\nHEADER IS BROKEN\n\n";
 
-    lseek(fd, k*-1, SEEK_CUR);
-    acc_bytes-=k;
+    //lseek(fd, k*-1, SEEK_CUR);
+    // seek backward k-1 characters and the number of fake symbols
+    lseek(fd, ((-1*k)-fake_symbols), SEEK_CUR);
+    //acc_bytes-=k;
+    // acc_bytes(?) is also decresed by the number of fake symbols
+    acc_bytes= acc_bytes - k - fake_symbols;
+    //std::cout << "acc bytes 2 = " << acc_bytes << "\n";
+    //std::cout << "rem text bytes = " << rem_text_bytes << "\n";
     rem_text_bytes-=acc_bytes;
 
     assert(chunk_bytes==0);

@@ -24,7 +24,7 @@ int main(int argc, char const* argv[])
     //settings for the file buffers
     size_t n_threads= stoi(std::string(argv[4]));//number of threads
     size_t active_chunks = 20; //number of chunks in the buffer
-    off_t chunk_size = 1024*1024*5; //size in bytes for every chunk
+    off_t chunk_size = 1024*1024*1; //size in bytes for every chunk
 
     std::string input_file = std::string(argv[7]);
     std::string output_file = std::string(argv[6]);

@@ -1335,30 +1335,43 @@ struct parse_input_pointer_atomic_variable{
                     uint64_t current_kmer_slot = ht_size;
                     assert(chunk.syms_in_buff>=k);
                     bool parsing_header = chunk.broken_header;
-                    //if (parsing_header)
-                        //std::cout << "\n\n !!!!!!!!!!!!!!!!!!!!! Chunk starts with broken header !!!!!!!!!!!!!!!!!!!!! \n\n\n";
+                    
+                    /*
+                    if (parsing_header)
+                    {
+                        std::cout << "\n!!!!!!!!!!!!!!!!!!!!! Chunk starts with broken header !!!!!!!!!!!!!!!!!!!!!\n";
+                        std::cout << "START skipping\n";
+                        while((i<chunk.syms_in_buff) && (chunk.buffer[i]!='\n'))
+                        {
+                            //std::cout << chunk.buffer[i];
+                            i++;
+                        }
+                        std::cout << "DONE\n";
+                        parsing_header = false;       
+                    }
+                    */
+                        
                     //slide a window over the buffer
                     while(i<chunk.syms_in_buff){
                         // If we are parsing buffer, get to the next line
-                        
+
                         // If the current character is header starting character, reset read buffer
                         if (chunk.buffer[i]=='>')
                         {
-                            //std::cout << "New read\n";
-                            kmer_factory->reset();
-                            rolling_hasher->reset();
-                            predecessor_kmer_exists = false;
-                            predecessor_kmer_slot = ht_size;
                             parsing_header = true;
                         }
                         if (parsing_header)
                         {
-                            while((chunk.buffer[i]!='\n') && (i<chunk.syms_in_buff))
+                            while((i<chunk.syms_in_buff) && (chunk.buffer[i]!='\n'))
                                 i++;
                             i++;
                             parsing_header = false;
+                            kmer_factory->reset();
+                            rolling_hasher->reset();
+                            predecessor_kmer_exists = false;
+                            predecessor_kmer_slot = ht_size;
                             continue;
-                        }
+                        }                        
                         // If the next character is newline, skip it
                         if (chunk.buffer[i]=='\n')
                         {
