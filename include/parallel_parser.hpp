@@ -30,7 +30,8 @@ struct parse_input_ORIGINAL{
     void operator()(std::string& input_file, std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k, uint64_t min_slots, uint64_t min_abundance){
 
         // Create the hash table
-        uint64_t ht_size = mathfunctions::next_prime(min_slots);
+        //uint64_t ht_size = mathfunctions::next_prime(min_slots);
+        uint64_t ht_size = mathfunctions::next_prime3mod4(min_slots);
         uint64_t kmer_len = k;
         //BasicAtomicHashTable* basic_atomic_hash_table = new BasicAtomicHashTable(ht_size, kmer_len);
         //BasicAtomicHashTableLong* basic_atomic_hash_table_long = new BasicAtomicHashTableLong(ht_size, kmer_len);
@@ -229,7 +230,8 @@ struct parse_input_atomic_flag{
 
         auto start_building = std::chrono::high_resolution_clock::now();
         // Create the hash table
-        uint64_t ht_size = mathfunctions::next_prime(min_slots);
+        //uint64_t ht_size = mathfunctions::next_prime(min_slots);
+        uint64_t ht_size = mathfunctions::next_prime3mod4(min_slots);
         uint64_t kmer_len = k;
         //BasicAtomicHashTable* basic_atomic_hash_table = new BasicAtomicHashTable(ht_size, kmer_len);
         BasicAtomicFlagHashTableLong* basic_atomic_hash_table_long = new BasicAtomicFlagHashTableLong(ht_size, kmer_len);
@@ -288,12 +290,20 @@ struct parse_input_atomic_flag{
                 text_chunks[chunk_id].buffer = (sym_type *)malloc(tmp_ck_size);
                 text_chunks[chunk_id].id = chunk_id;
                 text_chunks[chunk_id].broken_header = broken_header;
-
                 if constexpr (is_gzipped){
                     rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[chunk_id], rem_bytes, k-1, broken_header, start_symbol);
                 }else{
+                    //if (broken_header)
+                    //    std::cout << "Header is broken before check\n";
+                    //else
+                    //    std::cout << "Header not broken before check\n";
                     rem_bytes = read_chunk_from_file<chunk_type>(fd, text_chunks[chunk_id], rem_bytes, k-1, broken_header, start_symbol);
+                    //if (broken_header)
+                    //    std::cout << "Header is broken after check\n";
+                    //else
+                    //    std::cout << "Header not broken after check\n";
                 }
+                //std::cout << "\n";
                 in_queue.push(chunk_id);//as soon as we push, the chunks become visible of the worker threads to consume them
                 chunk_id++;
             }
@@ -302,7 +312,7 @@ struct parse_input_atomic_flag{
             while(rem_bytes>=k){
                 out_queue.pop(buff_idx);//it will wait until out_strings contains something
                 text_chunks[buff_idx].id = chunk_id++;
-
+                text_chunks[buff_idx].broken_header = broken_header;
                 if constexpr (is_gzipped){
                     rem_bytes = read_chunk_from_gz_file<chunk_type>(gfd, text_chunks[buff_idx], rem_bytes, k-1, broken_header, start_symbol);
                 }else{
@@ -586,24 +596,26 @@ struct parse_input_atomic_flag{
                         // If the current character is header starting character, reset read buffer
                         //--------------------------------------------------------------------------------------------------------------------------------
                         //--------------------------------------------------------------------------------------------------------------------------------
+                        // If the current character is header starting character, reset read buffer
                         if (chunk.buffer[i]=='>')
                         {
+                            parsing_header = true;
+                        }
+                        if (parsing_header)
+                        {
+                            while((i<chunk.syms_in_buff) && (chunk.buffer[i]!='\n'))
+                                i++;
+                            i++;
+                            parsing_header = false;
                             kmer_hash = 0;
+                            //std::fill(kmer_string.begin(), kmer_string.end(), 0);
                             for (int ii = 0; ii < kmer_bytes; ii++)
                                 kmer_string[ii] = 0;
                             chars_in_kmer = 0;
                             n_strings++;
                             rolling_hasher->reset();
-                            parsing_header = true;
-                        }
-                        if (parsing_header)
-                        {
-                            while((chunk.buffer[i]!='\n') && (i<chunk.syms_in_buff))
-                                i++;
-                            i++;
-                            parsing_header = false;
                             continue;
-                        }
+                        }                        
                         // If the next character is newline, skip it
                         if (chunk.buffer[i]=='\n')
                         {
@@ -874,7 +886,8 @@ struct parse_input_pointer_atomic_flag{
         auto start_building = std::chrono::high_resolution_clock::now();
 
         // Create the hash table
-        uint64_t ht_size = mathfunctions::next_prime(min_slots);
+        //uint64_t ht_size = mathfunctions::next_prime(min_slots);
+        uint64_t ht_size = mathfunctions::next_prime3mod4(min_slots);
         uint64_t kmer_len = k;
         //BasicAtomicHashTable* basic_atomic_hash_table = new BasicAtomicHashTable(ht_size, kmer_len);
         uint64_t kmer_blocks = std::ceil(kmer_len/32.0);
@@ -1164,7 +1177,7 @@ struct parse_input_pointer_atomic_variable{
     
 
     void operator()(std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k,
-                    sym_type start_symbol, uint64_t min_slots, uint64_t min_abundance, int input_mode=2){
+                    sym_type start_symbol, uint64_t min_slots, uint64_t min_abundance, int input_mode, bool debug){
 
         std::cout << "Starting atomic variable pointer hash table\n";
 
@@ -1172,7 +1185,8 @@ struct parse_input_pointer_atomic_variable{
         bool print_other_stuff = true;
         auto start_building = std::chrono::high_resolution_clock::now();
         // Create the hash table
-        uint64_t ht_size = mathfunctions::next_prime(min_slots);
+        //uint64_t ht_size = mathfunctions::next_prime(min_slots);
+        uint64_t ht_size = mathfunctions::next_prime3mod4(min_slots);
         uint64_t kmer_len = k;
         //BasicAtomicHashTable* basic_atomic_hash_table = new BasicAtomicHashTable(ht_size, kmer_len);
         uint64_t kmer_blocks = std::ceil(kmer_len/32.0);
@@ -1406,7 +1420,7 @@ struct parse_input_pointer_atomic_variable{
                         i++;
                     }
                     if (print_other_stuff)
-                        std::cout << "Chunk done\n";
+                        std::cout << "Chunk " << chunk.id << " done\n";
                     break;
                 }
                 case FASTQ: //fastq format
@@ -1469,8 +1483,17 @@ struct parse_input_pointer_atomic_variable{
         close(fd);
 
         auto start_writing = std::chrono::high_resolution_clock::now();
-        if (min_abundance > 0)
+        
+        if (debug){
+            std::cout << "Calculating pointer chain lengths\n";
+            hash_table->analyze_pointer_chain_lengths();
+        }
+        else if (min_abundance > 0)
+        {
+            std::cout << "Start writing k-mers in a file\n";
             hash_table->write_kmers_on_disk_separately_even_faster(min_abundance, output_file);
+        }
+            
         auto end_writing = std::chrono::high_resolution_clock::now();
 
         if (print_times)

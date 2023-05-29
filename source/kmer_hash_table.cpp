@@ -1992,7 +1992,7 @@ BasicAtomicFlagHashTableLong::BasicAtomicFlagHashTableLong(uint64_t s, uint32_t 
         kmer_bytes+=1;
     kmer_locks = new std::atomic_flag[s];
     kmer_array = new uint8_t[s*kmer_bytes];
-    counts = new uint32_t[s];
+    counts = new uint16_t[s];
     for (int i = 0; i < s; i++)
         kmer_locks[i].clear();
 }
@@ -2006,6 +2006,8 @@ BasicAtomicFlagHashTableLong::~BasicAtomicFlagHashTableLong()
 
 void BasicAtomicFlagHashTableLong::write_kmers(uint64_t min_abundance, std::string& output_path)
 {
+    //std::cout << "kmer bytes = " << kmer_bytes << "\n";
+    //std::cout << "hash table size is = " << size << "\n";
     std::ofstream output_file(output_path);
 
     for(int i = 0; i < size; i++)
@@ -2014,7 +2016,7 @@ void BasicAtomicFlagHashTableLong::write_kmers(uint64_t min_abundance, std::stri
         if (counts[i] >= min_abundance)
         {
             //std::cout << "Map position " << i << "\n";
-            int current_byte_pos = kmer_bytes*i;
+            uint64_t current_byte_pos = kmer_bytes*i;
             int unwritten_byte_chars = kmer_len % 4;
             if (unwritten_byte_chars == 0)
                 unwritten_byte_chars = 4;
@@ -2022,6 +2024,7 @@ void BasicAtomicFlagHashTableLong::write_kmers(uint64_t min_abundance, std::stri
             {
                 
                 //std::cout << "Byte position " << current_byte_pos << " and value is " << std::bitset<8>(kmer_array[current_byte_pos]) << "\n";
+                
                 output_file << twobitstringfunctions::int2char_small((kmer_array[current_byte_pos]>>(2*(unwritten_byte_chars-1))) & uint8_t(3));
                 unwritten_byte_chars--;
                 if (unwritten_byte_chars == 0)
@@ -2071,7 +2074,7 @@ void BasicAtomicVariableHashTableLong::write_kmers(uint64_t min_abundance, std::
         if ((counts[i].load(std::memory_order_acquire)>>1) >= min_abundance)
         {
             //std::cout << "Map position " << i << "\n";
-            int current_byte_pos = kmer_bytes*i;
+            uint64_t current_byte_pos = kmer_bytes*i;
             int unwritten_byte_chars = kmer_len % 4;
             if (unwritten_byte_chars == 0)
                 unwritten_byte_chars = 4;
@@ -2125,7 +2128,7 @@ PointerHashTableCanonicalAV::PointerHashTableCanonicalAV(uint64_t s, uint64_t k,
     inserted_items = 0;
     kmer_blocks = b;
     probe_hasher = new ProbeHasher1();
-    probing_prime = mathfunctions::next_prime(uint64_t(std::floor(size/13.0)));
+    //probing_prime = mathfunctions::next_prime(uint64_t(std::floor(size/13.0)));
     // Secondary array stuff
     max_secondary_slots = 100;
     touched_secondary_slots = 0;
@@ -2244,7 +2247,7 @@ uint64_t PointerHashTableCanonicalAV::process_kmer_MT(KMerFactoryCanonical2BC* k
                 }
                 if (!empty_secondary_slot_found)
                 {
-                    //std::cout << "SECONDARY ARRAY SLOT RESIZING ERROR THAT SHOULD NOT HAPPEN\n";
+                    std::cout << "SECONDARY ARRAY SLOT RESIZING ERROR THAT SHOULD NOT HAPPEN\n";
                     exit(1);
                 }
                 secondary_slots_in_use += 1;
@@ -2523,16 +2526,20 @@ uint64_t PointerHashTableCanonicalAV::process_kmer_MT(KMerFactoryCanonical2BC* k
             if (probe_normally)
             {
                 // This probing method is dumb, try something else later once the program works correctly
-                if (kmer_factory->forward_kmer_is_canonical())
-                    kmer_slot += probe_hasher->probe_2(probe_iteration);
-                else
-                    kmer_slot += probe_hasher->probe_2(probe_iteration);
+                if (kmer_factory->forward_kmer_is_canonical()){
+                    //kmer_slot += probe_hasher->probe_2(probe_iteration);
+                    kmer_slot = probe_hasher->probe_4(probe_iteration, kmer_slot, size);
+                }else{
+                    //kmer_slot += probe_hasher->probe_2(probe_iteration);
+                    kmer_slot = probe_hasher->probe_4(probe_iteration, kmer_slot, size);
+                }
                 probe_iteration += 1;
                 // Check if we have looped around back to the initial position
                 if (kmer_slot >= size)
                     kmer_slot = kmer_slot % size;
                 if (kmer_slot == initial_position){
-                    std::cout << "Hash table was full and the k-mer was not found. Resizing is probably needed...\n";
+                    std::cout << "Hash table was full and the k-mer was not found. Resizing is probably needed...1\n";
+                    std::cout << "At initial position: " << initial_position << " at probe iteration: " << probe_iteration << "\n";
                     exit(1);
                 }
             }
@@ -2687,16 +2694,20 @@ uint64_t PointerHashTableCanonicalAV::find(KMerFactoryCanonical2BC* kmer_factory
         }
 
         // Probe to next position
-        if (kmer_factory->forward_kmer_is_canonical())
-            kmer_slot += probe_hasher->probe_2(probe_iteration);
-        else
-            kmer_slot += probe_hasher->probe_2(probe_iteration);
+        if (kmer_factory->forward_kmer_is_canonical()){
+            //kmer_slot += probe_hasher->probe_2(probe_iteration);
+            kmer_slot = probe_hasher->probe_4(probe_iteration, kmer_slot, size);
+        }else{
+            //kmer_slot += probe_hasher->probe_2(probe_iteration);
+            kmer_slot = probe_hasher->probe_4(probe_iteration, kmer_slot, size);
+        }   
         probe_iteration += 1;
         // Check if we have looped around back to the initial position
         if (kmer_slot >= size)
             kmer_slot = kmer_slot % size;
         if (kmer_slot == initial_position){
-            std::cout << "Hash table was full and the k-mer was not found. Resizing is probably needed...\n";
+            std::cout << "Hash table was full and the k-mer was not found. Resizing is probably needed...2\n";
+            std::cout << "At initial position: " << initial_position << " at probe iteration: " << probe_iteration << "\n";
             exit(1);
         }
     }
@@ -2893,6 +2904,7 @@ bool PointerHashTableCanonicalAV::full_kmer_slot_check(KMerFactoryCanonical2BC* 
         {
             if (hash_table_array[position].canonical_during_insertion_predecessor())
             {
+                // m e q
                 // T T T
                 if (pir)
                 {
@@ -3631,16 +3643,20 @@ uint64_t PointerHashTableCanonicalAV::insert_new_kmer(KMerFactoryCanonical2BC* k
         else
         {
             // Probe to next
-            if (kmer_factory->forward_kmer_is_canonical())
-                kmer_slot += probe_hasher->probe_2(probe_iteration);
-            else
-                kmer_slot += probe_hasher->probe_2(probe_iteration);
+            if (kmer_factory->forward_kmer_is_canonical()){
+                //kmer_slot += probe_hasher->probe_2(probe_iteration);
+                kmer_slot = probe_hasher->probe_4(probe_iteration, kmer_slot, size);
+            } else {
+                //kmer_slot += probe_hasher->probe_2(probe_iteration);
+                kmer_slot = probe_hasher->probe_4(probe_iteration, kmer_slot, size);
+            }                                           
             probe_iteration += 1;
             // Check if we have looped around back to the initial position
             if (kmer_slot >= size)
                 kmer_slot = kmer_slot % size;
             if (kmer_slot == initial_position){
-                std::cout << "Hash table was full and the k-mer was not found. Resizing is probably needed...\n";
+                std::cout << "Hash table was full and the k-mer was not found. Resizing is probably needed...3\n";
+                std::cout << "At initial position: " << initial_position << " at probe iteration: " << probe_iteration << "\n";
                 exit(1);
             }
         }
@@ -3772,16 +3788,20 @@ uint64_t PointerHashTableCanonicalAV::insert_new_kmer_in_secondary(KMerFactoryCa
         else
         {
             // Probe to next
-            if (kmer_factory->forward_kmer_is_canonical())
-                kmer_slot += probe_hasher->probe_2(probe_iteration);
-            else
-                kmer_slot += probe_hasher->probe_2(probe_iteration);
+            if (kmer_factory->forward_kmer_is_canonical()){
+                //kmer_slot += probe_hasher->probe_2(probe_iteration);
+                kmer_slot = probe_hasher->probe_4(probe_iteration, kmer_slot, size);
+            }else{
+                //kmer_slot += probe_hasher->probe_2(probe_iteration);
+                kmer_slot = probe_hasher->probe_4(probe_iteration, kmer_slot, size);
+            }  
             probe_iteration += 1;
             // Check if we have looped around back to the initial position
             if (kmer_slot >= size)
                 kmer_slot = kmer_slot % size;
             if (kmer_slot == initial_position){
-                std::cout << "Hash table was full and the k-mer was not found. Resizing is probably needed...\n";
+                std::cout << "Hash table was full and the k-mer was not found. Resizing is probably needed...4\n";
+                std::cout << "At initial position: " << initial_position << " at probe iteration: " << probe_iteration << "\n";
                 exit(1);
             }
         }
@@ -4044,6 +4064,238 @@ void PointerHashTableCanonicalAV::write_kmers_on_disk_separately(uint64_t min_ab
 }
 */
 
+// 
+// This is done with single thread always, don't touch for now
+// 
+uint64_t PointerHashTableCanonicalAV::count_reconstruction_chain_length_in_slot(uint64_t slot)
+{
+    if (!hash_table_array[slot].is_occupied())
+        return 0;
+    
+    uint64_t chain_length = 0;
+
+    std::vector<uint64_t> kmer_characters(kmer_len, 4);
+    
+    uint64_t position = slot;
+    // Leftmost untaken character position
+    int L;
+    // Rightmost untaken character position
+    int R;
+    L = 0;
+    R = kmer_len - 1;
+    // Leftmost chain character wrt the initial L value
+    int Lc = 0;
+    // Rightmost chain character wrt the initial R value
+    int Rc = kmer_len - 1;
+    // Process in reverse: handle the current chain k-mer in reverse orientation
+    bool pir = false;
+
+    bool perform_secondary_array_check = false;
+
+    uint64_t looked_kmers = 0;
+
+    while(true)
+    {
+        chain_length = chain_length + 1;
+
+        //std::cout << "In this iteration L is " << L << " and R is " << R << "\n";
+        //std::cout << "pir is " << pir << "\n";
+        if (!hash_table_array[position].predecessor_exists())
+        {
+            //std::cout << "Going to perform secondary array reconstruction\n";
+            perform_secondary_array_check = true;
+            break;
+        }
+        // Compare left characters
+        if (L == Lc)
+        {
+            //std::cout << "Adding left char " << L << "\n";
+            // If needs to be handled in reverse
+            if (pir)
+            {
+                kmer_characters[L] = twobitstringfunctions::reverse_int(hash_table_array[position].get_right_character());
+            }
+            // If needs to be handled forward
+            else
+            {
+                kmer_characters[L] = hash_table_array[position].get_left_character();
+            }
+            //std::cout << "Adding left char in slot " << L << " = " << kmer_characters[L] << "\n";
+            L = L + 1;
+            if (L > R)
+                break;
+        }
+        // Compare right characers
+        if (R == Rc)
+        {
+            //std::cout << "Adding right char " << R << "\n";
+            // If needs to be handled in reverse
+            if (pir)
+            {
+                kmer_characters[R] = twobitstringfunctions::reverse_int(hash_table_array[position].get_left_character());
+            }
+            // If needs to be handled forward
+            else
+            {
+                kmer_characters[R] = hash_table_array[position].get_right_character();
+            } 
+            //std::cout << "Adding right char in slot " << R << " = " << kmer_characters[R] << "\n";       
+            R = R - 1;
+            if (L > R)
+                break;
+        }
+        // Modify chain character positions and process in reverse indicator
+        if (hash_table_array[position].canonical_during_insertion_self())
+        {
+            if (hash_table_array[position].canonical_during_insertion_predecessor())
+            {
+                // T T T
+                if (pir)
+                {
+                    // Extend right, keep pir
+                    Lc = Lc + 1;
+                    Rc = Rc + 1;
+                }
+                // T T F
+                else 
+                {
+                    // Extend left, keep pir
+                    Lc = Lc - 1;
+                    Rc = Rc - 1;
+                }
+            }
+            else
+            {
+                // T F T
+                if (pir)
+                {
+                    // Extend right, flip 
+                    Lc = Lc + 1;
+                    Rc = Rc + 1;
+                    pir = !pir;
+                }
+                // T F F
+                else 
+                {
+                    // Extend left, flip pir
+                    Lc = Lc - 1;
+                    Rc = Rc - 1;
+                    pir = !pir;
+                }
+            }
+            
+        }
+        else
+        {
+            if (hash_table_array[position].canonical_during_insertion_predecessor())
+            {
+                // F T T
+                if (pir)
+                {
+                    // Extend left, flip pir
+                    Lc = Lc - 1;
+                    Rc = Rc - 1;
+                    pir = !pir;
+                }
+                // F T F
+                else 
+                {
+                    // Extend right, flip pir
+                    Lc = Lc + 1;
+                    Rc = Rc + 1;
+                    pir = !pir;
+                }
+            }
+            else
+            {
+                // F F T
+                if (pir)
+                {
+                    // Extend left, keep pir
+                    Lc = Lc - 1;
+                    Rc = Rc - 1;
+                }
+                // F F F
+                else 
+                {
+                    // Extend right, keep pir
+                    Lc = Lc + 1;
+                    Rc = Rc + 1;
+                }
+            }
+        }
+        position = hash_table_array[position].get_predecessor_slot();
+        looked_kmers += 1;
+    }
+
+    if (perform_secondary_array_check)
+    {
+        //std::cout << "Adding characters from secondary array\n";
+        
+        int Ls = L - Lc;
+        //int Rs = R - Lc;
+        //int Rs = Ls + kmer_len - 1;
+        int a;
+        int b;
+        uint64_t query_char;
+        uint64_t array_char;
+        uint64_t secondary_array_position = hash_table_array[position].get_predecessor_slot();
+        //std::cout << "Secondary array is " << secondary_array[secondary_array_position] << "\n";
+        if (!pir)
+        {
+            a = L;
+            b = Ls;
+            while(a <= R)
+            {
+                kmer_characters[a] = get_secondary_array_char(secondary_array_position, b);
+                //std::cout << "Adding left char in slot " << a << " = " << kmer_characters[a] << "\n";
+                a+=1;
+                b+=1;
+            }
+        }
+        else
+        {  
+            a = L;
+            //b = Rs;
+            b = kmer_len-Ls-1;
+            while(a <= R)
+            {
+                kmer_characters[a] = twobitstringfunctions::reverse_int(get_secondary_array_char(secondary_array_position, b));
+                //std::cout << "Adding left char in slot " << a << " = " << kmer_characters[a] << "\n";
+                a+=1;
+                b-=1;
+            }
+        }
+    }
+   
+    return chain_length;
+}
+
+void PointerHashTableCanonicalAV::analyze_pointer_chain_lengths()
+{
+    uint64_t chain_lengths = 100000;
+    uint64_t counts[chain_lengths];
+    for (int i = 0; i < chain_lengths; i++){
+        counts[i] = 0;
+    }
+    uint64_t chain_length = 0;
+
+    for (int i = 0; i < size; i++)
+    {
+        if (hash_table_array[i].is_occupied()){
+            chain_length = count_reconstruction_chain_length_in_slot(i);
+            counts[chain_length] += 1; 
+        } else {
+            counts[0] += 1; 
+        }
+    }
+    std::ofstream output_file("KAARME_RECONSTRUCTION_CHAIN_LENGTHS.txt");
+    for (int i = 0; i < chain_lengths; i++){
+        output_file << i << ":" << counts[i] << "\n";
+    }
+    output_file.close();
+	output_file.clear();
+}
 
 void PointerHashTableCanonicalAV::write_kmers_on_disk_separately_even_faster(uint64_t min_abundance, std::string& output_path)
 {

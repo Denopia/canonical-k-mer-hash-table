@@ -146,3 +146,27 @@ uint64_t ProbeHasher1::probe_3(uint64_t iteration)
 {
     return 1;
 }
+
+
+// Better quadratic probing for prime N = 3 mod 4
+uint64_t ProbeHasher1::probe_4(uint64_t iteration, uint64_t position, uint64_t modulo)
+{
+
+    uint64_t new_position = (position + iteration*iteration) % modulo;
+    return new_position;
+
+    /*
+    uint64_t jump = (iteration*iteration) % modulo;
+    uint64_t new_position = position;
+    if (iteration % 2 == 0){
+        new_position = (new_position + jump) % modulo;
+    } else {
+        if (jump <= position){
+            new_position = (new_position - jump) % modulo;
+        } else {
+            new_position = modulo - (jump-position);
+        }
+    }
+    return new_position;
+    */
+}

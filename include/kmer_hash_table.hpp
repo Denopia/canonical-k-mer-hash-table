@@ -39,7 +39,7 @@ class BasicAtomicFlagHashTableLong
 {
     public:
         uint8_t* kmer_array;
-        uint32_t* counts;
+        uint16_t* counts;
         std::atomic_flag* kmer_locks;
         uint64_t size;
         uint32_t kmer_len;
@@ -306,6 +306,10 @@ class PointerHashTableCanonicalAV
         void write_kmers_on_disk_separately_even_faster(uint64_t min_abundance, std::string& output_path);
 
         uint64_t process_kmer_MT(KMerFactoryCanonical2BC* kmer_factory, RollingHasherDual* hasher, bool predecessor_exists, uint64_t predecessor_slot);
+
+        void analyze_pointer_chain_lengths();
+
+        uint64_t count_reconstruction_chain_length_in_slot(uint64_t slot);
 
 };
 

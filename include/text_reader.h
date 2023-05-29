@@ -97,6 +97,8 @@ off_t read_chunk_from_file(int fd, // file descriptor
                           bool &next_has_broken_header,
                           sym_t start_symbol=0) {
 
+    //std::cout << "Start preparing text chunk\n";
+    //std::cout << "Remaining bytes = " << rem_text_bytes << "\n";
     off_t chunk_bytes = chunk.bytes<rem_text_bytes ? chunk.bytes : rem_text_bytes;
     chunk.bytes = chunk_bytes;
 
@@ -136,7 +138,7 @@ off_t read_chunk_from_file(int fd, // file descriptor
         // This is only relevant for fasta files since they allow newline characters in the middle of a read sequence(?)
         if (start_symbol == '>')
         {
-            while(real_symbols < k && si > 0)
+            while(real_symbols < k && si >= 0)
             {
                 if (chunk.buffer[si] != '\n')
                     real_symbols++;
@@ -145,6 +147,13 @@ off_t read_chunk_from_file(int fd, // file descriptor
                 si--;
             }
         }
+
+        // Chunk does not have enough real symbols
+        if (real_symbols != k)
+        {
+            rem_text_bytes = 0;
+            return rem_text_bytes;
+        }
         
         // Next, check if the text chunk ends with a header.
         // Skip the last k-1 characters to avoid weird behavior(??)
@@ -152,7 +161,9 @@ off_t read_chunk_from_file(int fd, // file descriptor
         size_t i = chunk.syms_in_buff - 1 - k - fake_symbols; 
         //size_t i = chunk.syms_in_buff;
         //while(i-->0 && chunk.buffer[i]!=start_symbol){
-        while(i > 0 && chunk.buffer[i]!=start_symbol){
+        while(i >= 0) {
+            if(chunk.buffer[i]==start_symbol)
+                break;
             if(chunk.buffer[i]=='\n'){
                 //std::cout << "Newline found, not broken header\n";
                 next_has_broken_header = false;
@@ -166,10 +177,10 @@ off_t read_chunk_from_file(int fd, // file descriptor
 
     // If the number of characters in the text chunk minus newline characters 
     // is less than k the chunk does not contain a full k-mer
-    if (acc_bytes-fake_symbols < k+1){
-        rem_text_bytes = 0;
-        return rem_text_bytes;
-    }
+    //if (acc_bytes-fake_symbols < k+1){
+    //    rem_text_bytes = 0;
+    //    return rem_text_bytes;
+    //}
 
     //if (next_has_broken_header)
     //    std::cout << "\nHEADER IS BROKEN\n\n";
@@ -182,10 +193,15 @@ off_t read_chunk_from_file(int fd, // file descriptor
     acc_bytes= acc_bytes - k - fake_symbols;
     //std::cout << "acc bytes 2 = " << acc_bytes << "\n";
     //std::cout << "rem text bytes = " << rem_text_bytes << "\n";
-    rem_text_bytes-=acc_bytes;
+    
+    if (acc_bytes == 0)
+        rem_text_bytes = 0;
+    else
+        rem_text_bytes-=acc_bytes;
 
     assert(chunk_bytes==0);
 
+    //std::cout << "Chunk prepared successfully\n";
     return rem_text_bytes;
 }
 #endif //PARALLEL_PARSING_TEXT_READER_H

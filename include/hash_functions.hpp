@@ -85,4 +85,7 @@ class ProbeHasher1
         // Linear probing
         uint64_t probe_3(uint64_t iteration);
 
+        // Better quadratic probing
+        uint64_t probe_4(uint64_t iteration, uint64_t position, uint64_t modulo);
+
 };
