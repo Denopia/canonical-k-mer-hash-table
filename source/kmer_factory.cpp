@@ -1,11 +1,11 @@
 #include "kmer_factory.hpp"
+#include <cmath>
 
 /*
     === Canonical version starts ==========================================================================================
 */
 
-KMerFactoryCanonical2BC::KMerFactoryCanonical2BC(uint64_t k)
-{
+KMerFactoryCanonical2BC::KMerFactoryCanonical2BC(int k) {
 
     // Example of 3 blocks and how the characters fit in them
     // Leftmost block is the one with empty slots
@@ -59,27 +59,27 @@ KMerFactoryCanonical2BC::~KMerFactoryCanonical2BC()
     delete[] blocks_backward;
 }
 
-bool KMerFactoryCanonical2BC::current_kmer_is_real()
+bool KMerFactoryCanonical2BC::current_kmer_is_real() const
 {
     return kmer_length == characters_stored;
 }
 
-bool KMerFactoryCanonical2BC::forward_kmer_is_canonical()
+bool KMerFactoryCanonical2BC::forward_kmer_is_canonical() const
 {
     return forward_is_canonical;
 } 
 
-bool KMerFactoryCanonical2BC::previous_forward_kmer_was_canonical()
+bool KMerFactoryCanonical2BC::previous_forward_kmer_was_canonical() const
 {
     return previous_forward_was_canonical;
 } 
 
-bool KMerFactoryCanonical2BC::previous_kmer_existed()
+bool KMerFactoryCanonical2BC::previous_kmer_existed() const
 {
     return previous_kmer_exists;
 } 
 
-int KMerFactoryCanonical2BC::get_number_of_stored_characters()
+int KMerFactoryCanonical2BC::get_number_of_stored_characters() const
 {
     return characters_stored;
 }
@@ -99,9 +99,7 @@ void KMerFactoryCanonical2BC::reset()
     }
 }
 
-
 // Modify canonical buffer so that it is also filled from left side
-
 
 void KMerFactoryCanonical2BC::push_new_character(char c)
 {
@@ -197,7 +195,7 @@ void KMerFactoryCanonical2BC::push_new_integer(uint64_t c)
     
     // Reverse k-mer stuff
     // If already full, add by shifting
-    if ((characters_stored == kmer_length))
+    if (characters_stored == kmer_length)
     {
         for (int i = number_of_blocks-1; i > 0; i--)
         {
@@ -241,47 +239,47 @@ void KMerFactoryCanonical2BC::push_new_integer(uint64_t c)
 }
 
 
-uint64_t KMerFactoryCanonical2BC::get_forward_leftmost_character()
+uint64_t KMerFactoryCanonical2BC::get_forward_leftmost_character() const
 {   
     return ((blocks_forward[0]&left_block_left_char_mask) >> (bits_in_last_block-character_bits));
 }
 
-uint64_t KMerFactoryCanonical2BC::get_forward_rightmost_character()
+uint64_t KMerFactoryCanonical2BC::get_forward_rightmost_character() const
 {
     return (blocks_forward[number_of_blocks-1]&right_block_right_char_mask);
 }
 
-uint64_t KMerFactoryCanonical2BC::get_forward_pushed_off_character()
+uint64_t KMerFactoryCanonical2BC::get_forward_pushed_off_character() const
 {
     return pushed_off_character_forward;
 }
 
-uint64_t KMerFactoryCanonical2BC::get_forward_newest_character()
+uint64_t KMerFactoryCanonical2BC::get_forward_newest_character() const
 {
     return get_forward_rightmost_character();
 }
 
-uint64_t KMerFactoryCanonical2BC::get_forward_block(uint64_t i)
+uint64_t KMerFactoryCanonical2BC::get_forward_block(uint64_t i) const
 {
     return blocks_forward[i];
 }
 
-uint64_t KMerFactoryCanonical2BC::get_backward_block(uint64_t i)
+uint64_t KMerFactoryCanonical2BC::get_backward_block(uint64_t i) const
 {
     return blocks_backward[i];
 }
 
-uint64_t KMerFactoryCanonical2BC::get_rightmost_forward_block()
+uint64_t KMerFactoryCanonical2BC::get_rightmost_forward_block() const
 {
     return blocks_forward[number_of_blocks-1];
 }
 
-uint64_t KMerFactoryCanonical2BC::get_rightmost_backward_block()
+uint64_t KMerFactoryCanonical2BC::get_rightmost_backward_block() const
 {
     return blocks_backward[number_of_blocks-1];
 }
 
-uint64_t KMerFactoryCanonical2BC::get_canonical_block(uint64_t i)
+uint64_t KMerFactoryCanonical2BC::get_canonical_block(uint64_t i) const
 {
     if (forward_is_canonical)
     {
@@ -293,7 +291,7 @@ uint64_t KMerFactoryCanonical2BC::get_canonical_block(uint64_t i)
     }
 }
 
-uint64_t KMerFactoryCanonical2BC::get_noncanonical_block(uint64_t i)
+uint64_t KMerFactoryCanonical2BC::get_noncanonical_block(uint64_t i) const
 {
     if (forward_is_canonical)
     {
@@ -305,7 +303,7 @@ uint64_t KMerFactoryCanonical2BC::get_noncanonical_block(uint64_t i)
     }
 }
 
-uint64_t KMerFactoryCanonical2BC::get_forward_char_at_position(int i)
+uint64_t KMerFactoryCanonical2BC::get_forward_char_at_position(int i) const
 {
     if ((i < 0) || (i >= kmer_length))
     {
@@ -322,7 +320,7 @@ uint64_t KMerFactoryCanonical2BC::get_forward_char_at_position(int i)
     return character_to_return & 3ULL;
 }
 
-uint64_t KMerFactoryCanonical2BC::get_backward_char_at_position(int i)
+uint64_t KMerFactoryCanonical2BC::get_backward_char_at_position(int i) const
 {
     
     if ((i < 0) || (i >= kmer_length))
@@ -330,11 +328,12 @@ uint64_t KMerFactoryCanonical2BC::get_backward_char_at_position(int i)
         std::cout << "tried to access a character outside of kmer factory range\n";
         exit(1);
     }
+
     int j = kmer_length - 1 - i;
     //int i = j;
     int block = j / 32;
     block = number_of_blocks - block - 1;
-    int shift = 2*(j % 32);
+    int shift = 2* (j % 32);
     uint64_t character_to_return = blocks_backward[block];
     character_to_return = character_to_return >> shift;
     return character_to_return & 3ULL;

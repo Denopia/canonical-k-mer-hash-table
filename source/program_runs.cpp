@@ -37,6 +37,8 @@ int run_mode_1(int argc, char const* argv[])
 
     int argi = 1;
 
+    //TODO I recomend to use an API called CLI to handle the parsing of the CLI: https://github.com/CLIUtils/CLI11
+
     // --- Parse arguments ---
     while (argi < argc)
     {
@@ -135,25 +137,27 @@ int run_mode_1(int argc, char const* argv[])
 
     // --- Make the number of hash table slots prime ---
     uint32_t prime_slots = mathfunctions::next_prime(min_slots);
-    
+
+    //TODO WARNING you are narrowing an unint32_t to int (loosing one bit)
+    // Your table is at most 2^{31} in size
     // --- Define new variable for hash table size ---
-    int hash_table_slots = prime_slots;
+    int hash_table_slots = int(prime_slots);
 
     // --- Set the desired load factor
     float load_factor = 0.8;
 
     // --- Build file reader ---
     bool reverse_reads_enabled = false;
-    FastaReader* file_reader = new FastaReader(reads_path, reverse_reads_enabled);
+    auto* file_reader = new FastaReader(reads_path, reverse_reads_enabled);
 
     // --- Build k-mer factory ---
-    KMerFactoryCanonical2BC* kmer_factory = new KMerFactoryCanonical2BC(k);
+    auto* kmer_factory = new KMerFactoryCanonical2BC(k);
     
     // --- Build rolling hasher ----
-    RollingHasherDual* hasher = new RollingHasherDual(hash_table_slots, k);
+    auto* hasher = new RollingHasherDual(hash_table_slots, k);
 
     // --- Build hash table ---
-    PointerHashTableCanonical* hash_table = new PointerHashTableCanonical(hash_table_slots, k, kmer_factory->number_of_blocks);
+    auto* hash_table = new PointerHashTableCanonical(hash_table_slots, k, kmer_factory->number_of_blocks);
 
     uint64_t current_kmer_slot = 0;
     uint64_t predecessor_kmer_slot = hash_table_slots;
@@ -275,8 +279,9 @@ int run_mode_1(int argc, char const* argv[])
             }
 
             // If hash table is too full, kill program
-            
-            if (hash_table->get_number_of_inserted_items() > load_factor*hash_table_slots)
+            auto max_used_slots = uint64_t(load_factor*float(hash_table_slots));
+
+            if (hash_table->get_number_of_inserted_items() >max_used_slots)
             {
                 std::cout << "Number of k-mers exceeds desired load factor. Aborting program.\n";
                 return 1;
@@ -379,7 +384,7 @@ int run_mode_1(int argc, char const* argv[])
             current_kmer_slot = 0;
 
             std::cin >> query_kmer;
-            if (!query_kmer.compare("q") || !query_kmer.compare("Q"))
+            if (query_kmer!="q" || query_kmer!="Q")
             {
                 if (verbose)
                     std::cout << "Query end now.\n";
@@ -416,7 +421,9 @@ int run_mode_1(int argc, char const* argv[])
                     purestringfunctions::reverse_this_string(qkr);
                     std::cout << "Querying for " << qkr << " (the canonical form of " << query_kmer << ")\n";
                 }
-                if (current_kmer_slot == hash_table_slots){
+
+                //TODO hash_table_slots is an int while current_kmer_slot is a uint64_t
+                if (current_kmer_slot == (uint64_t)hash_table_slots){
                     std::cout << "0\n";
                 } else {
                     std::cout << hash_table->get_kmer_count_in_slot(current_kmer_slot) << "\n";
@@ -424,14 +431,17 @@ int run_mode_1(int argc, char const* argv[])
             }
         }
     }
-    
 
     int count1 = 0;
     int count2 = 0;
     int count3 = 0;
     int countM = 0;
-    
-    for (uint32_t l = 0; l < hash_table_slots; l++){
+
+    //TODO
+    // WARNING: the number of buckets in the hash table is limited to 4 GB
+    // as hash_table_slots is an int
+    //
+    for (int l = 0; l < hash_table_slots; l++){
         if (hash_table->slot_is_occupied(l)){
             if (hash_table->get_kmer_count_in_slot(l) == 1){
                 count1 += 1;

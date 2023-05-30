@@ -52,14 +52,31 @@ namespace purestringfunctions
 namespace twobitstringfunctions
 {
 
+    
     uint64_t char2int(char c)
     {
         if (c == 'A' || c == 'a'){return 0ULL;}
         if (c == 'C' || c == 'c'){return 1ULL;}
         if (c == 'G' || c == 'g'){return 2ULL;}
         if (c == 'T' || c == 't'){return 3ULL;}
-        std::cerr << "** ERROR ** Invalid character error in 'fun_strings.hpp': code 001\n";
+        
+        if (c != '\n')
+        {
+            std::cerr << "** ERROR ** Invalid character error in 'fun_strings.hpp': code 001\n";
+            std::cerr << "character was: " << std::bitset<8>(c) << "\n\n";
+        }
+            
         return 4ULL;
+    }
+
+    char int2char_small(uint8_t c)
+    {
+        if (c == uint8_t(0)){return 'A';}
+        if (c == uint8_t(1)){return 'C';}
+        if (c == uint8_t(2)){return 'G';}
+        if (c == uint8_t(3)){return 'T';}
+        std::cerr << "** ERROR ** Invalid character error in 'fun_strings.hpp': code 002\n";
+        return 'N';
     }
 
     char int2char(uint64_t c)
