@@ -13,6 +13,8 @@ C++20
 
 ## Installation
 
+Run the following commands (in the directory where this README file is):
+
 1. mkdir build
 2. cd build
 3. cmake -S ../source -B .
