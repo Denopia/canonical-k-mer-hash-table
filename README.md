@@ -11,6 +11,8 @@ CMake 3.10
 
 C++20
 
+(This program has been tested only on Linux based OS)
+
 ## Installation
 
 Run the following commands (in the directory where this README file is):
