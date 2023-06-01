@@ -1261,7 +1261,11 @@ struct parse_input_pointer_atomic_variable{
                 //std::cout << "\n";
                 in_queue.push(chunk_id);//as soon as we push, the chunks become visible of the worker threads to consume them
                 chunk_id++;
+                //std::cout << "Chunk pushed " << chunk_id << "\n";
+                //std::cout << "Rem bytes is " << rem_bytes << "\n";
             }
+
+            //std::cout << "First step ready\n";
 
             size_t buff_idx;
             while(rem_bytes>=k){
@@ -1288,6 +1292,7 @@ struct parse_input_pointer_atomic_variable{
             out_queue.done();
 
             close(fd);
+            //std::cout << "File reading is ready\n";
         };
 
         //lambda functions that hash the kmers in a text chunk

@@ -129,6 +129,8 @@ off_t read_chunk_from_file(int fd, // file descriptor
     off_t fake_symbols = 0;
     off_t real_symbols = 0;
     off_t si = chunk.syms_in_buff-1;
+    
+    //std::cout << "si = " << si << "\n";
 
     //std::cout << "FAKE SYMBOLS = " << fake_symbols << "\n";
 
@@ -147,6 +149,8 @@ off_t read_chunk_from_file(int fd, // file descriptor
                 si--;
             }
         }
+
+        //std::cout << "Real symbol check\n";
 
         // Chunk does not have enough real symbols
         if (real_symbols != k)
@@ -185,12 +189,21 @@ off_t read_chunk_from_file(int fd, // file descriptor
     //if (next_has_broken_header)
     //    std::cout << "\nHEADER IS BROKEN\n\n";
 
+
+    // Text has been fully read
+    if (rem_text_bytes == acc_bytes){
+        rem_text_bytes = 0;
+        return rem_text_bytes;
+    }
+
+    // Otherwise move file reader pointer backward appropriately
+
     //lseek(fd, k*-1, SEEK_CUR);
     // seek backward k-1 characters and the number of fake symbols
     lseek(fd, ((-1*k)-fake_symbols), SEEK_CUR);
     //acc_bytes-=k;
     // acc_bytes(?) is also decresed by the number of fake symbols
-    acc_bytes= acc_bytes - k - fake_symbols;
+    acc_bytes = acc_bytes - k - fake_symbols;
     //std::cout << "acc bytes 2 = " << acc_bytes << "\n";
     //std::cout << "rem text bytes = " << rem_text_bytes << "\n";
     

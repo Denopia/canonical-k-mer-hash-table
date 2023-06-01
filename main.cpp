@@ -164,8 +164,10 @@ int main(int argc, char const* argv[])
         exit(1);
     }
 
+    n_threads = n_threads - 2;
+
     //settings for the file buffers
-    size_t active_chunks = 12; //number of chunks in the buffer
+    size_t active_chunks = 2*n_threads; //number of chunks in the buffer
     off_t chunk_size = 1024*1024*10; //size in bytes for every chunk
 
     bool is_gzipped = false;//TODO check if its gzipped
