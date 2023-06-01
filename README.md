@@ -14,7 +14,7 @@ Supported input types are fasta and plain text (one read per line) files.
 
 ## Installation
 
-Run the following commands (in the directory where this README file is):
+Run the following commands:
 
 ```
 git clone git@github.com:Denopia/kaarme.git
