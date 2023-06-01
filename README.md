@@ -17,6 +17,8 @@ Supported input types are fasta and plain text (one read per line) files.
 Run the following commands (in the directory where this README file is):
 
 ```
+git clone git@github.com:Denopia/kaarme.git
+cd kaarme
 mkdir build
 cd build
 cmake -S ../source -B .
