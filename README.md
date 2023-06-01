@@ -21,7 +21,7 @@ git clone git@github.com:Denopia/kaarme.git
 cd kaarme
 mkdir build
 cd build
-cmake -S ../source -B .
+cmake -S .. -B .
 cmake --build .
 ```
 
