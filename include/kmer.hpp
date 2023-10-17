@@ -147,3 +147,53 @@ class OneCharacterAndPointerKMerAtomicVariable
         void increase_count();
 
 };
+
+class OneCharacterAndPointerKMerAtomicVariableBIG
+{
+    
+    public:
+        std::atomic<uint64_t> data;
+        std::atomic<uint16_t> count;
+        /*
+            Data (from right to left):
+            * 38 bits for pointer (MAX 274,877,906,944 pointers: if at max -> uses 2 terabytes)
+            *  8 bits for left characters
+            *  8 bits for right characters
+            * 10 bits for various flags (from right to left)
+                - (512) 1 bit for free flag 4 (marks anything that is needed)
+                - (256) 1 bit for free flag 3 (marks anything that is needed)
+                - (128) 1 bit for free flag 2 (marks anything that is needed)       
+                -  (64) 1 bit for free flag 1 (marks anything that is needed)
+                -  (32) 1 bit for predecessor was canonical in read when inserted
+                -  (16) 1 bit for self was canonical in read when inserted
+                -   (8) 1 bit for right character is null
+                -   (4) 1 bit for left character is null
+                -   (2) 1 bit for predecessor k-mer exists (1 = exists, 0 = does not exist)
+                -   (1) 1 bit for occupied (1 = occupied, 0 = free)
+        */
+        // Constructor
+        OneCharacterAndPointerKMerAtomicVariableBIG();
+        
+        // Destructor
+        ~OneCharacterAndPointerKMerAtomicVariableBIG();
+        
+        // Getters
+        uint64_t get_data();
+        uint64_t get_predecessor_slot();
+        uint64_t get_count();
+        uint64_t get_left_character();
+        uint64_t get_right_character();
+        bool is_occupied();
+        bool predecessor_exists();
+        bool left_char_is_null();
+        bool right_char_is_null();
+        bool canonical_during_insertion_self();
+        bool canonical_during_insertion_predecessor();
+        bool is_flagged_1();
+        bool is_flagged_2();
+        bool is_complete(); // inferred from 4 and 8
+        
+        // Counter increaser (+1)
+        void increase_count();
+
+};

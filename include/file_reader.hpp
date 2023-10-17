@@ -43,4 +43,6 @@ class FastaReader
         bool read_is_loaded();
 
         char get_current_read_character_at(int position);
+
+        std::string get_current_read();
 };

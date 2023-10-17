@@ -111,3 +111,8 @@ char FastaReader::get_current_read_character_at(int position)
         }
     }
 }
+
+std::string FastaReader::get_current_read()
+{
+    return current_read;
+}

@@ -95,8 +95,57 @@ namespace mathfunctions
         }
     }
 
-    uint64_t modular_multiplicative_inverse(uint64_t A, uint64_t M)
+
+    uint64_t modular_multiplicative_inverse_coprimes(int64_t A, int64_t M)
     {
+        int64_t AA = A;
+        int64_t MM = M;
+        int64_t m0 = M;
+        int64_t y = 0, x = 1;
+    
+        if (M == 1)
+            return 0;
+    
+        while (A > 1) {
+            // q is quotient
+            int64_t q = A / M;
+            int64_t t = M;
+    
+            // m is remainder now, process same as
+            // Euclid's algo
+            M = A % M, A = t;
+            t = y;
+    
+            // Update y and x
+            y = x - q * y;
+            x = t;
+        }
+    
+        // Make x positive
+        if (x < 0)
+            x += m0;
+    
+        //std::cout << "Modular multiplicative inverse of A=" << AA << " and M=" << MM << " is " << x << "\n";
+        return uint64_t(x);
+    }
+
+    uint64_t modular_multiplicative_inverse_little_fermat(uint64_t A, uint64_t M)
+    {
+        /*
+        bool nbf = false;
+        for (int X = 1; X < M; X++){
+            if (((A % M) * (X % M)) % M == 1){
+                std::cout << "Naive brute force modular multiplicative inverse of A=" << A << " and M=" << M << " is " << X << "\n";
+                nbf=true;
+                break;
+                //return X;
+            }
+        }
+        if (!nbf){
+            std::cout << "Modular multiplicative inverse for A=" << A << " and M=" << M << " does not exist\n";
+        }
+        */
+            
         uint64_t g = greatest_common_divisor(A, M);
         if (g != 1)
         {

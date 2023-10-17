@@ -1288,7 +1288,13 @@ uint64_t PointerHashTableCanonicalAF::insert_new_kmer_in_secondary(KMerFactoryCa
     if (smallest_unused_secondary_slot == max_secondary_slots-1)
     {
         //std::cout << "Secondary array resizing needed\n";
-        max_secondary_slots *= 2;
+        if (max_secondary_slots < 1000000){
+            max_secondary_slots *= 2;
+        } else {
+            max_secondary_slots *= 1.5;
+        }
+        secondary_array.reserve(kmer_blocks*max_secondary_slots);
+        secondary_free_slots.reserve(max_secondary_slots);
         secondary_array.resize(kmer_blocks*max_secondary_slots, 0);
         secondary_free_slots.resize(max_secondary_slots, 1);
     }
@@ -2260,7 +2266,13 @@ uint64_t PointerHashTableCanonicalAV::process_kmer_MT(KMerFactoryCanonical2BC* k
                 }
                 if (smallest_unused_secondary_slot == max_secondary_slots-1)
                 {
-                    max_secondary_slots *= 2;
+                    if (max_secondary_slots < 1000000){
+                        max_secondary_slots *= 2;
+                    } else {
+                        max_secondary_slots *= 1.5;
+                    }
+                    secondary_array.reserve(kmer_blocks*max_secondary_slots);
+                    secondary_free_slots.reserve(max_secondary_slots);
                     secondary_array.resize(kmer_blocks*max_secondary_slots, 0);
                     secondary_free_slots.resize(max_secondary_slots, 1);
                 }
@@ -3701,7 +3713,13 @@ uint64_t PointerHashTableCanonicalAV::insert_new_kmer_in_secondary(KMerFactoryCa
     }
     if (smallest_unused_secondary_slot == max_secondary_slots-1)
     {
-        max_secondary_slots *= 2;
+        if (max_secondary_slots < 1000000){
+            max_secondary_slots *= 2;
+        } else {
+            max_secondary_slots *= 1.5;
+        }
+        secondary_array.reserve(kmer_blocks*max_secondary_slots);
+        secondary_free_slots.reserve(max_secondary_slots);
         secondary_array.resize(kmer_blocks*max_secondary_slots, 0);
         secondary_free_slots.resize(max_secondary_slots, 1);
     }
@@ -4301,6 +4319,8 @@ void PointerHashTableCanonicalAV::write_kmers_on_disk_separately_even_faster(uin
 {
     std::ofstream output_file(output_path);
     uint64_t kmer_data;
+    uint64_t kmers_written = 0;
+    uint64_t kmers_skipped = 0;
     // First count/find how many times each k-mer is referenced
     //std::vector<uint8_t> referenced(size, 0);
     for (int i = 0; i < size; i++)
@@ -4365,11 +4385,14 @@ void PointerHashTableCanonicalAV::write_kmers_on_disk_separately_even_faster(uin
             // Write first
             if (hash_table_array[chain_position].get_count() >= min_abundance)
             {
+                kmers_written += 1;
                 if (iteration == 0)
                     iteration_0_kmers+=1;
                 else
                     iteration_1_kmers+=1;
                 output_file << starting_kmer << " " << hash_table_array[chain_position].get_count() << "\n";
+            } else {
+                kmers_skipped += 1;
             }
             kmer_data = hash_table_array[chain_position].get_data();
             //while(!hash_table_array[chain_position].data.compare_exchange_strong(kmer_data, kmod::modify_to_be_flagged_2(kmer_data),std::memory_order_release, std::memory_order_relaxed));
@@ -4422,11 +4445,14 @@ void PointerHashTableCanonicalAV::write_kmers_on_disk_separately_even_faster(uin
                 {
                     if (hash_table_array[chain_position].get_count() >= min_abundance)
                     {
+                        kmers_written += 1;
                         if (iteration == 0)
                             iteration_0_kmers+=1;
                         else
                             iteration_1_kmers+=1;
                         output_file << reconstruct_kmer_in_slot(chain_position) << " " << std::to_string(hash_table_array[chain_position].get_count()) << "\n";
+                    } else {
+                        kmers_skipped += 1;
                     }
                     kmer_data = hash_table_array[chain_position].get_data();
                     //while(!hash_table_array[chain_position].data.compare_exchange_strong(kmer_data, kmod::modify_to_be_flagged_2(kmer_data),std::memory_order_release, std::memory_order_relaxed));
@@ -4437,11 +4463,14 @@ void PointerHashTableCanonicalAV::write_kmers_on_disk_separately_even_faster(uin
                 }
                 if (hash_table_array[chain_position].get_count() >= min_abundance)
                 {
+                    kmers_written += 1;
                     if (iteration == 0)
                         iteration_0_kmers+=1;
                     else
                         iteration_1_kmers+=1;
                     output_file << starting_kmer << " " << hash_table_array[chain_position].get_count() << "\n";
+                } else {
+                    kmers_skipped += 1;
                 }
                 kmer_data = hash_table_array[chain_position].get_data();
                 //while(!hash_table_array[chain_position].data.compare_exchange_strong(kmer_data, kmod::modify_to_be_flagged_2(kmer_data),std::memory_order_release, std::memory_order_relaxed));
@@ -4490,6 +4519,8 @@ void PointerHashTableCanonicalAV::write_kmers_on_disk_separately_even_faster(uin
     //std::cout << "Iteration 1 k-mers: " << iteration_1_kmers << "\n";
     output_file.close(); // close file
 	output_file.clear(); // clear flags
+    std::cout << "Written k-mers: " << kmers_written << "\n";
+    std::cout << "Skipped k-mers: " << kmers_skipped << "\n";
 }
 
 /*

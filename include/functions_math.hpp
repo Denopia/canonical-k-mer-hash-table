@@ -39,8 +39,15 @@ namespace mathfunctions
 
         NOTE: M must be prime.
     */
-    uint64_t modular_multiplicative_inverse(uint64_t A, uint64_t M);
+    uint64_t modular_multiplicative_inverse_coprimes(int64_t A, int64_t M);
 
+    /*
+        This function returns the multiplicative inverse of A
+        under modulo M. 
+
+        NOTE: M must be prime.
+    */
+    uint64_t modular_multiplicative_inverse_little_fermat(uint64_t A, uint64_t M);
 
     /*
         This function return x^y mod M

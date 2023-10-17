@@ -15,14 +15,28 @@ add_executable(kaarme main.cpp
         source/kmer_factory.cpp
         source/functions_math.cpp
         source/functions_kmer_mod.cpp
-        #source/program_runs.cpp
+        source/functions_bloom_filter.cpp
         source/kmer.cpp
-        source/kmer_hash_table.cpp)
+        source/kmer_hash_table.cpp
+        xxHash/xxhash.c)
+        
 
-target_link_libraries(kaarme pthread z)
+target_link_libraries(kaarme pthread z /home/xlex/work/3-CanonicalHashTable/github-release-multithread/canonical-k-mer-hash-table/sdsl-lite-installation/lib/libsdsl.a)
 target_compile_options(kaarme PRIVATE
-        -Wall -Wextra -Wpedantic
+        -Wall 
+        -Wextra 
+        -Wpedantic
+        -ggdb
+        #-O1
         -O3
-        -ffast-math -ggdb)
-target_include_directories(kaarme PUBLIC include)
+        #-ffast-math 
+        -march=native
+        #-flto
+        #-funroll-loops
+        #-finline-functions
+        #-fno-stack-protector
+        #-funswitch-loops
+        #-fprefetch-loop-arrays
+        )
+target_include_directories(kaarme PUBLIC include xxHash sdsl-lite-installation/include)
                            

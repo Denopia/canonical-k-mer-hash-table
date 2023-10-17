@@ -8,9 +8,11 @@ RollingHasherDual::RollingHasherDual(uint64_t q, uint64_t m)
     // d = alphabet size (for multiplication)
     // di = modular multiplicative inverse of d (for division)
     this->q = q;
+    this->rq = 0;
     this->m = m;
-    this->d = 7;
-    this->di = mathfunctions::modular_multiplicative_inverse(d, q);
+    this->d = 5;
+    this->di = mathfunctions::modular_multiplicative_inverse_coprimes(d, q);
+    this->tbm = false;
     //std::cout << "Hash table size: " << q << "\n";
     //std::cout << "Modular multiplicative inverse: " << this->di << "\n";
     bpc = 2;
@@ -23,51 +25,170 @@ RollingHasherDual::RollingHasherDual(uint64_t q, uint64_t m)
         h = (h*d)%q;
 }
 
+RollingHasherDual::RollingHasherDual(uint64_t q, uint64_t m, uint64_t modular_multiplicative_inverse, uint64_t multiplier)
+{
+    // q = mod value
+    // m = max power
+    // d = alphabet size (for multiplication)
+    // di = modular multiplicative inverse of d (for division)
+    this->q = q;
+    this->rq = 0;
+    this->m = m;
+    this->d = multiplier;
+    this->di = modular_multiplicative_inverse;
+    this->tbm = false;
+    //std::cout << "Hash table size: " << q << "\n";
+    //std::cout << "Modular multiplicative inverse: " << this->di << "\n";
+    bpc = 2;
+    character_mask = 3ULL;
+    current_hash_forward = 0;
+    current_hash_backward = 0;
+    hashed_count = 0;
+    h = 1;
+    for (uint64_t i = 0; i < m-1; i++)
+        h = (h*d)%q;
+}
+
+RollingHasherDual::RollingHasherDual(uint64_t q, uint64_t m, uint64_t modular_multiplicative_inverse, uint64_t multiplier, uint64_t return_q)
+{
+    // q = mod value
+    // m = max power
+    // d = alphabet size (for multiplication)
+    // di = modular multiplicative inverse of d (for division)
+    this->q = q;
+    this->rq = return_q;
+    this->m = m;
+    this->d = multiplier;
+    this->di = modular_multiplicative_inverse;
+    this->tbm = false;
+    //std::cout << "Hash table size: " << q << "\n";
+    //std::cout << "Modular multiplicative inverse: " << this->di << "\n";
+    bpc = 2;
+    character_mask = 3ULL;
+    current_hash_forward = 0;
+    current_hash_backward = 0;
+    hashed_count = 0;
+    h = 1;
+    for (uint64_t i = 0; i < m-1; i++)
+        h = (h*d)%q;
+
+}
+
+RollingHasherDual::RollingHasherDual(uint64_t q, uint64_t m, uint64_t modular_multiplicative_inverse, uint64_t multiplier, uint64_t return_q, bool twobitmod)
+{
+    // q = mod value
+    // m = max power
+    // d = alphabet size (for multiplication)
+    // di = modular multiplicative inverse of d (for division)
+    this->q = q;
+    this->rq = return_q;
+    this->m = m;
+    this->d = multiplier;
+    this->di = modular_multiplicative_inverse;
+    this->tbm = twobitmod;
+    //std::cout << "Hash table size: " << q << "\n";
+    //std::cout << "Modular multiplicative inverse: " << this->di << "\n";
+    bpc = 2;
+    character_mask = 3ULL;
+    current_hash_forward = 0;
+    current_hash_backward = 0;
+    hashed_count = 0;
+    h = 1;
+    for (uint64_t i = 0; i < m-1; i++)
+        h = (h*d)%q;
+
+}
+
 void RollingHasherDual::update_rolling_hash_in(uint64_t in)
 {
-    current_hash_forward = (d*current_hash_forward + in) % q;
+    // If mod is power of 2, use this
+    if (tbm){
+        current_hash_forward = (d*current_hash_forward + in) & (q-1);
+        // Alternative reverse update version
+        uint64_t reverse_add = twobitstringfunctions::reverse_int(in);
+        for (uint64_t i = 0; i < hashed_count; i++)
+            reverse_add = (reverse_add*d) & (q-1);
+        current_hash_backward = (current_hash_backward + reverse_add) & (q-1);
+
+    } else {
+        current_hash_forward = (d*current_hash_forward + in) % q;
+        // Alternative reverse update version
+        uint64_t reverse_add = twobitstringfunctions::reverse_int(in);
+        for (uint64_t i = 0; i < hashed_count; i++)
+            reverse_add = (reverse_add*d) % q;
+        current_hash_backward = (current_hash_backward + reverse_add) % q;
+        // Original reverse update version
+        //current_hash_backward = (di*current_hash_backward + twobitstringfunctions::reverse_int(in)*h) % q;
+    }
     
-    // Alternative reverse update version
-    uint64_t reverse_add = twobitstringfunctions::reverse_int(in);
-    for (uint64_t i = 0; i < hashed_count; i++)
-        reverse_add = (reverse_add*d) % q;
-     current_hash_backward = (current_hash_backward + reverse_add) % q;
-    // Original reverse update version
-    //current_hash_backward = (di*current_hash_backward + twobitstringfunctions::reverse_int(in)*h) % q;
 }
 
 // Should be fine now
 void RollingHasherDual::update_rolling_hash_in_and_out(uint64_t in, uint64_t out)
 {
-    // First update forward
-    uint64_t baseline = (d*current_hash_forward + in) % q;
-    uint64_t to_be_removed = (d*h*out) % q;
-    if (to_be_removed > baseline)
-    {
-        current_hash_forward = ((baseline + q) - to_be_removed);
-    }
-    else
-    {
-        current_hash_forward = baseline - to_be_removed;
-    }
-    // Next update backward
-    baseline = current_hash_backward;
-    //std::cout << "Baseline is: " << baseline << "\n";
-    to_be_removed = twobitstringfunctions::reverse_int(out);
-    //std::cout << "To be removed is: " << to_be_removed << "\n";
-    if (to_be_removed > baseline)
-    {
-        baseline = ((baseline + q) - to_be_removed);
-    }
-    else
-    {
-        baseline = baseline - to_be_removed;
-    }
-    // Simulate division with inverse multiplication
-    baseline = (baseline * di) % q;
-    current_hash_backward = ((twobitstringfunctions::reverse_int(in)*h) + baseline) % q;
+    if (tbm){
+        //std::cout << "INSERTING " << in << " AND OUTING " << out << "\n";
+        // First update forward
+        __uint128_t baseline = (d*current_hash_forward + in) & (q-1);
+        __uint128_t to_be_removed = (d*h*out) & (q-1);
+        if (to_be_removed > baseline)
+        {
+            current_hash_forward = uint64_t((baseline + q) - to_be_removed);
+        }
+        else
+        {
+            current_hash_forward = uint64_t(baseline - to_be_removed);
+        }
+        // Next update backward
+        baseline = current_hash_backward;
+        //std::cout << "Baseline is: " << baseline << "\n";
+        to_be_removed = twobitstringfunctions::reverse_int(out);
+        //std::cout << "To be removed is: " << to_be_removed << "\n";
+        if (to_be_removed > baseline)
+        {
+            baseline = ((baseline + q) - to_be_removed);
+        }
+        else
+        {
+            baseline = baseline - to_be_removed;
+        }
+        // Simulate division with inverse multiplication
+        baseline = (baseline * di) & (q-1);
+        current_hash_backward = uint64_t(((twobitstringfunctions::reverse_int(in)*h) + baseline) & (q-1));
 
-    //hashed_count += 1;
+        //hashed_count += 1;
+    } else {
+        //std::cout << "INSERTING " << in << " AND OUTING " << out << "\n";
+        // First update forward
+        __uint128_t baseline = (d*current_hash_forward + in) % q;
+        __uint128_t to_be_removed = (d*h*out) % q;
+        if (to_be_removed > baseline)
+        {
+            current_hash_forward = uint64_t((baseline + q) - to_be_removed);
+        }
+        else
+        {
+            current_hash_forward = uint64_t(baseline - to_be_removed);
+        }
+        // Next update backward
+        baseline = current_hash_backward;
+        //std::cout << "Baseline is: " << baseline << "\n";
+        to_be_removed = twobitstringfunctions::reverse_int(out);
+        //std::cout << "To be removed is: " << to_be_removed << "\n";
+        if (to_be_removed > baseline)
+        {
+            baseline = ((baseline + q) - to_be_removed);
+        }
+        else
+        {
+            baseline = baseline - to_be_removed;
+        }
+        // Simulate division with inverse multiplication
+        baseline = (baseline * di) % q;
+        current_hash_backward = uint64_t(((twobitstringfunctions::reverse_int(in)*h) + baseline) % q);
+        //hashed_count += 1;
+    }
+    
 }
 
 void RollingHasherDual::update_rolling_hash(uint64_t in, uint64_t out)
@@ -76,6 +197,7 @@ void RollingHasherDual::update_rolling_hash(uint64_t in, uint64_t out)
     // Based on the outgoing character and hash count, update hash value accordingly
     if (hashed_count < m)
     {
+        //std::cout << "ONLY IN HASHING\n";
         update_rolling_hash_in(in);
     }
     else
@@ -87,13 +209,28 @@ void RollingHasherDual::update_rolling_hash(uint64_t in, uint64_t out)
 
 uint64_t RollingHasherDual::get_current_hash_forward()
 {
-    return current_hash_forward;
+    if (rq == 0)
+        return uint64_t(current_hash_forward);
+    return uint64_t(current_hash_forward % rq);
 }
 
 uint64_t RollingHasherDual::get_current_hash_backward()
 {
-    return current_hash_backward;
+    if (rq == 0)
+        return uint64_t(current_hash_backward);
+    return uint64_t(current_hash_backward % rq);
 }
+
+uint64_t RollingHasherDual::get_current_hash_forward_rqless()
+{
+    return uint64_t(current_hash_forward);
+}
+
+uint64_t RollingHasherDual::get_current_hash_backward_rqless()
+{
+    return uint64_t(current_hash_backward);
+}
+
 
 void RollingHasherDual::reset()
 {
@@ -125,6 +262,14 @@ void RollingHasherDual::load_full_factory_canonical(KMerFactoryCanonical2BC * km
 }
 
 
+//##########################################################################################################
+//##########################################################################################################
+
+
+//##########################################################################################################
+//##########################################################################################################
+
+
 // Double hashing probing
 uint64_t ProbeHasher1::probe_1(uint64_t item, uint64_t P)
 {
@@ -151,7 +296,8 @@ uint64_t ProbeHasher1::probe_3(uint64_t iteration)
 // Better quadratic probing for prime N = 3 mod 4
 uint64_t ProbeHasher1::probe_4(uint64_t iteration, uint64_t position, uint64_t modulo)
 {
-
+    // Try simple linear probing
+    //return ((position+iteration) % modulo);
     uint64_t new_position = (position + iteration*iteration) % modulo;
     return new_position;
 

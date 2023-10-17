@@ -713,6 +713,121 @@ void OneCharacterAndPointerKMerAtomicVariable::increase_count()
     }
 }
 
+/*
+
+// THIS IS FOR FLAGLESS K-MER WITH ATOMIC DATA VARIABLE, SEPARATE COUNT INTEGER
+
+*/
+
+//============
+// Constructor
+//============
+OneCharacterAndPointerKMerAtomicVariableBIG::OneCharacterAndPointerKMerAtomicVariableBIG()
+{
+    data.store(0ULL, std::memory_order_release);
+    count.store(uint16_t(0), std::memory_order_release);
+}
+
+//===========
+// Destructor
+//===========
+OneCharacterAndPointerKMerAtomicVariableBIG::~OneCharacterAndPointerKMerAtomicVariableBIG(){}
+
+
+//==========================================
+// Functions to fetch specific parts of data
+//==========================================
+
+uint64_t OneCharacterAndPointerKMerAtomicVariableBIG::get_data()
+{
+    return data.load(std::memory_order_acquire);
+}
+
+uint64_t OneCharacterAndPointerKMerAtomicVariableBIG::get_predecessor_slot()
+{
+    return data.load(std::memory_order_acquire) >> (64-38);
+}
+
+uint64_t OneCharacterAndPointerKMerAtomicVariableBIG::get_count()
+{
+    return ((data.load(std::memory_order_acquire) >> 12) & uint64_t(16383));
+}
+
+uint64_t OneCharacterAndPointerKMerAtomicVariableBIG::get_left_character()
+{
+    return ((data.load(std::memory_order_acquire) >> 10) & uint64_t(3));
+}
+
+uint64_t OneCharacterAndPointerKMerAtomicVariableBIG::get_right_character()
+{
+    return ((data.load(std::memory_order_acquire) >> 8) & uint64_t(3));
+}
+
+bool OneCharacterAndPointerKMerAtomicVariableBIG::is_occupied()
+{
+    return (data.load(std::memory_order_acquire) & uint64_t(1));
+}
+
+bool OneCharacterAndPointerKMerAtomicVariableBIG::predecessor_exists()
+{
+    return ((data.load(std::memory_order_acquire) >> 1) & uint64_t(1));
+}
+
+bool OneCharacterAndPointerKMerAtomicVariableBIG::left_char_is_null()
+{
+    return ((data.load(std::memory_order_acquire) >> 2) & uint64_t(1));
+}
+
+bool OneCharacterAndPointerKMerAtomicVariableBIG::right_char_is_null()
+{
+    return ((data.load(std::memory_order_acquire) >> 3) & uint64_t(1));
+}
+
+bool OneCharacterAndPointerKMerAtomicVariableBIG::canonical_during_insertion_self()
+{
+    return ((data.load(std::memory_order_acquire) >> 4) & uint64_t(1));
+}
+
+bool OneCharacterAndPointerKMerAtomicVariableBIG::canonical_during_insertion_predecessor()
+{
+    return ((data.load(std::memory_order_acquire) >> 5) & uint64_t(1));
+}
+
+bool OneCharacterAndPointerKMerAtomicVariableBIG::is_flagged_1()
+{
+    return ((data.load(std::memory_order_acquire) >> 6) & uint64_t(1));
+}
+
+bool OneCharacterAndPointerKMerAtomicVariableBIG::is_flagged_2()
+{
+    return ((data.load(std::memory_order_acquire) >> 7) & uint64_t(1));
+}
+
+bool OneCharacterAndPointerKMerAtomicVariableBIG::is_complete()
+{
+    return (left_char_is_null() && right_char_is_null());
+}
+
+//========================================
+// Function to increase counter atomically
+//========================================
+
+void OneCharacterAndPointerKMerAtomicVariableBIG::increase_count()
+{
+    // Get current data
+    uint64_t current_data = data.load(std::memory_order_acquire);
+    if (((current_data >> 12) & uint64_t(16383)) == uint64_t(16383))
+        return;
+    // Try to increase count
+    //while(!data.compare_exchange_strong(current_data, kmod::modify_to_increase_count_by_one(current_data), std::memory_order_release, std::memory_order_relaxed))
+    while(!data.compare_exchange_strong(current_data, kmod::modify_to_increase_count_by_one(current_data), std::memory_order_acq_rel, std::memory_order_relaxed))
+    //while(!data.compare_exchange_weak(current_data, kmod::modify_to_increase_count_by_one(current_data), std::memory_order_release, std::memory_order_relaxed))
+    {
+        // If it was already at max, do nothing
+        if (((current_data >> 12) & uint64_t(16383)) == uint64_t(16383))
+            break;
+    }
+}
 
 
 
