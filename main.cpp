@@ -129,6 +129,7 @@ int main(int argc, char const* argv[])
 
     if (user_wants_help)
     {   std::cout << "This is a k-mer has table program. Here are the accepted arguments:\n\n";
+        std::cout << "\t-b [integer] bloom filter size";
         std::cout << "\t-k [integer] determines the k-mer length\n";
         std::cout << "\t-a [integer] minimum k-mer abundance (for writing output, default: 1)\n";
         std::cout << "\t-s [integer] determines the minimum hash table size (actual used size is the next prime)\n";
@@ -175,8 +176,8 @@ int main(int argc, char const* argv[])
 
     if (min_slots == 0)
     {
-        std::cout << "You must set the size of the hash table\n";
-        exit(1);
+        //std::cout << "You must set the size of the hash table\n";
+        //exit(1);
     }
 
     if (n_threads < 3)
