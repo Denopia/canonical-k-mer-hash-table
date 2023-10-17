@@ -39,12 +39,16 @@ Parameters are:
 -i : Input type as integer. Use 0 for fasta and 2 for plain text.
 -k : k-mer length as integer.
 -s: Hash table size as integer. (Resizing is not implemented at the moment so if the hash table is too small, the program must be restarted manually with bigger hash table size.)
+-b: Estimated number of unique k-mers. (Used as the bloom filter size)
 -t: Number of threads as integer. Minimum number of threads is 3.
 -a: Minimum numner of k-mer occurrences for it to printed in the output file.
 -p: Path to the input file as string.  
 -o: Path to the output file as string.
 ```
-All parameters are required.
+
+Kaarme hash table has two modes: one that uses bloom filter to try to filter out k-mers that occur less than twice, and other that does not use a bloom filter. In the case you want to use bloom filter, you must provide an estimate for the number of unique k-mers in the data set as parameter -b. If you do not wish to use the bloom filter, you must provide a size for the hash table as parameter -s. If -b is provided bloom filter mode is used, otherwise the non-bloom filter mode is used. If neither parameter is provided, the program fails to run correctly. 
+
+All other parameters are required.
 
 ## Example
 
@@ -53,6 +57,11 @@ Use the installation instructions to install the program. Then run the following
 ./build/kaarme -m 2 -i 0 -k 51 -s 8000000 -t 5 -a 2 -p example/ecoli1x.fasta -o example/ecoli1x-51mers.txt
 ```
 Now the example directory should contain a file called ecoli1x-51mers.txt with all 51-mers that appear at least twice in ecoli1x.fasta.
+
+The example above uses the Kaarme without bloom filtering. To use bloom filtering, run the following example:
+```
+./build/kaarme -m 2 -i 0 -k 51 -b 4000000 -t 5 -a 2 -p example/ecoli1x.fasta -o example/ecoli1x-51mers.txt
+```
 
 ## Licence
 
