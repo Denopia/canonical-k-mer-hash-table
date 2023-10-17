@@ -40,13 +40,14 @@ Parameters are:
 -k : k-mer length as integer.
 -s: Hash table size as integer. (Resizing is not implemented at the moment so if the hash table is too small, the program must be restarted manually with bigger hash table size.)
 -b: Estimated number of unique k-mers. (Used as the bloom filter size)
+-f: Bloom filter false positive rate as double. 
 -t: Number of threads as integer. Minimum number of threads is 3.
 -a: Minimum numner of k-mer occurrences for it to printed in the output file.
 -p: Path to the input file as string.  
 -o: Path to the output file as string.
 ```
 
-Kaarme hash table has two modes: one that uses bloom filter to try to filter out k-mers that occur less than twice, and other that does not use a bloom filter. In the case you want to use bloom filter, you must provide an estimate for the number of unique k-mers in the data set as parameter -b. If you do not wish to use the bloom filter, you must provide a size for the hash table as parameter -s. If -b is provided bloom filter mode is used, otherwise the non-bloom filter mode is used. If neither parameter is provided, the program fails to run correctly. 
+Kaarme hash table has two modes: one that uses bloom filter to try to filter out k-mers that occur less than twice, and other that does not use a bloom filter. In the case you want to use bloom filter, you must provide an estimate for the number of unique k-mers in the data set as parameter -b. If you do not wish to use the bloom filter, you must provide a size for the hash table as parameter -s. If -b is provided bloom filter mode is used, otherwise the non-bloom filter mode is used. If neither parameter is provided, the program fails to run correctly. If bloom filter mode is used, you can provide the false positive rate as parameter -f. Otherwise, default value 0.01 is used.
 
 All other parameters are required.
 
