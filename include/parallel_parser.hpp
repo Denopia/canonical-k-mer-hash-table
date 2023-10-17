@@ -2378,8 +2378,12 @@ struct parse_input_pointer_atomic_variable_BF{
         //note: it is not necessary for this function to be a lambda. It can be a static function
 
         // MODIFIED LONG
+        //int poppipop = 0;
         auto hash_kmers =[&](chunk_type& chunk, size_t format){
-
+            
+            //poppipop += 1;
+            //std::cout << "Haloo 1:" << poppipop << "\n";
+            
             off_t i =0, last;
             size_t n_strings=0;
 
@@ -2395,6 +2399,9 @@ struct parse_input_pointer_atomic_variable_BF{
 
             // --- Build k-mer factory ---
             KMerFactoryCanonical2BC* kmer_factory = new KMerFactoryCanonical2BC(k);
+
+            //std::cout << "Haloo 2:" << poppipop << "\n";
+            
 
             switch (format) {
                 case PLAIN://one-string-per-line format
@@ -2478,7 +2485,12 @@ struct parse_input_pointer_atomic_variable_BF{
                     */
                         
                     //slide a window over the buffer
+                    //int chunkcounter = 0;
                     while(i<chunk.syms_in_buff){
+
+                        //std::cout << "Chunk counter: " << chunkcounter << "\n";
+                        //chunkcounter += 1;
+
                         // If we are parsing buffer, get to the next line
 
                         // If the current character is header starting character, reset read buffer
@@ -2573,20 +2585,24 @@ struct parse_input_pointer_atomic_variable_BF{
         //lambda function that gets chunks from the IN queue and calls the hash_kmers lambda
         //we feed this function to std::thread
         auto string_worker = [&](size_t worker_id){
-
+            //std::cout << "Creating new worker " << worker_id << "\n";
             size_t buff_id;
             bool res;
             size_t consumed_kmers = 0;
 
             while(true){
+                //std::cout << "Waiting for chunks\n";
                 res = in_queue.pop(buff_id);//the thread will wait until there is something to pop
-                assert(text_chunks[buff_id].bytes>0);
+                //std::cout << "Asserting chunk\n";
+                //assert(text_chunks[buff_id].bytes>0);
+                //std::cout << "Asserted succesfully\n";
                 if(!res) break;
+                //std::cout << "Chunk was ok\n";
                 hash_kmers(text_chunks[buff_id], format);
                 consumed_kmers+=text_chunks[buff_id].syms_in_buff-k+1;
                 out_queue.push(buff_id);//the thread will wait until the stack is free to push
             }
-
+            //std::cout << "Worker " << worker_id << " created\n";
             /*
             if (print_other_stuff)
             {//TODO just testing
@@ -2598,8 +2614,11 @@ struct parse_input_pointer_atomic_variable_BF{
 
         std::vector<std::thread> threads;
         threads.emplace_back(io_worker);
+        //std::cout << "Starting to create workers\n";
         for(size_t i=0;i<n_threads;i++){
+            //std::cout << "Sending worker creation request\n";
             threads.emplace_back(string_worker, i);
+            //std::cout << "Request completed\n";
         }
 
         for(auto & thread : threads){
