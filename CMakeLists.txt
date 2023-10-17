@@ -18,7 +18,8 @@ add_executable(kaarme main.cpp
         source/functions_bloom_filter.cpp
         source/kmer.cpp
         source/kmer_hash_table.cpp
-        xxHash/xxhash.c)
+        source/xxhash.c
+        )
         
 
 target_link_libraries(kaarme pthread z /home/xlex/work/3-CanonicalHashTable/github-release-multithread/canonical-k-mer-hash-table/sdsl-lite-installation/lib/libsdsl.a)
