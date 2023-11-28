@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.10)
 project(KaarmeKMerHashtable)
 
 # specify the C++ standard
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 #set(CMAKE_CXX_STANDARD_REQUIRED True)
 #set(EXTRA_INCLUDES include)
 
@@ -18,11 +18,16 @@ add_executable(kaarme main.cpp
         source/functions_bloom_filter.cpp
         source/kmer.cpp
         source/kmer_hash_table.cpp
-        source/xxhash.c
+        externals/xxHash/xxhash.c
         )
         
 
-target_link_libraries(kaarme pthread z /home/xlex/work/3-CanonicalHashTable/github-release-multithread/canonical-k-mer-hash-table/sdsl-lite-installation/lib/libsdsl.a)
+target_link_libraries(kaarme
+        pthread
+        z
+        #/home/xlex/work/3-CanonicalHashTable/github-release-multithread/canonical-k-mer-hash-table/sdsl-lite-installation/lib/libsdsl.a
+)
+
 target_compile_options(kaarme PRIVATE
         -Wall 
         -Wextra 
@@ -31,7 +36,7 @@ target_compile_options(kaarme PRIVATE
         #-O1
         -O3
         #-ffast-math 
-        -march=native
+        #-march=native
         #-flto
         #-funroll-loops
         #-finline-functions
@@ -39,5 +44,10 @@ target_compile_options(kaarme PRIVATE
         #-funswitch-loops
         #-fprefetch-loop-arrays
         )
-target_include_directories(kaarme PUBLIC include xxHash sdsl-lite-installation/include)
+
+target_include_directories(kaarme PUBLIC
+        include
+        externals/xxHash
+        #sdsl-lite-installation/include
+)
                            

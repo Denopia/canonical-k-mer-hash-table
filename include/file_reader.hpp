@@ -38,9 +38,9 @@ class FastaReader
         // Reads lines from the input file and builds a single string that contains the current full read
         void read_the_next_read();
 
-        int get_current_read_length();
+        uint64_t get_current_read_length() const;
 
-        bool read_is_loaded();
+        bool read_is_loaded() const;
 
         char get_current_read_character_at(int position);
 

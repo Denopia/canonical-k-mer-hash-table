@@ -11,7 +11,10 @@ class Atomic8
     public:
         std::atomic<uint8_t> value;
         Atomic8():value(0){};
-        ~Atomic8(){};
+
+        Atomic8(Atomic8&& other) noexcept : value(other.value.load(std::memory_order_acquire)){};
+
+        ~Atomic8()= default;
         void set(uint8_t nv){
             uint8_t ev = value.load(std::memory_order_acquire);
             while(!value.compare_exchange_strong(ev, nv, std::memory_order_acq_rel,std::memory_order_relaxed)){}
@@ -19,6 +22,7 @@ class Atomic8
         uint8_t get(){
             return value.load(std::memory_order_acquire);
         }
+
 };
 
 
@@ -37,7 +41,7 @@ class MyAtomicBitArrayFT
         bool squeezed;
 
     public:
-        MyAtomicBitArrayFT(uint64_t size);
+        explicit MyAtomicBitArrayFT(uint64_t size);
         ~MyAtomicBitArrayFT();
         bool test(uint64_t i);
         bool set(uint64_t i);
@@ -126,7 +130,7 @@ bool MyAtomicBitArrayFT::set(uint64_t i)
 void MyAtomicBitArrayFT::squeeze()
 {
     squeezed = true;
-    for (int i = 0; 2*i+1 < bytes; i++){
+    for (uint64_t i = 0; 2*i+1 < bytes; i++){
         uint8_t new_value = 0;
 
         if (2*i < half_bytes){
@@ -173,7 +177,7 @@ class MyAtomicBitVector
         uint64_t size;
 
     public:
-        MyAtomicBitVector(uint64_t s);
+        explicit MyAtomicBitVector(uint64_t s);
         ~MyAtomicBitVector();
         bool test(uint64_t i);
         bool set(uint64_t i);
@@ -228,14 +232,14 @@ bool MyAtomicBitVector::set(uint64_t i)
             return false;
         }
     }
-    // If we get here, return "bit set succesful"
+    // If we get here, return "bit set successful"
     return true;
 }
 
 void MyAtomicBitVector::squeeze()
 {
     squeezed = true;
-    for (int i = 0; 2*i+1 < bytes; i++){
+    for (uint64_t i = 0; 2*i+1 < bytes; i++){
         uint8_t new_value = 0;
 
         new_value = new_value | ((bitvector[2*i].value.load(std::memory_order_acquire)&64)<<1);
@@ -253,7 +257,7 @@ void MyAtomicBitVector::squeeze()
         while(!bitvector[i].value.compare_exchange_strong(old_value, new_value, std::memory_order_acq_rel, std::memory_order_relaxed)){}
     }
     bytes = bytes / 2;
-    for (int i = 0; i < bytes; i++)
+    for (uint64_t i = 0; i < bytes; i++)
         bitvector.pop_back();
     bitvector.shrink_to_fit();
 }
@@ -269,7 +273,7 @@ class MyAtomicBitArray
         uint64_t bytes;
 
     public:
-        MyAtomicBitArray(uint64_t size);
+        explicit MyAtomicBitArray(uint64_t size);
         ~MyAtomicBitArray();
         bool test(uint64_t i);
         bool set(uint64_t i);
@@ -340,7 +344,7 @@ class MyBitArray
         uint64_t bytes;
 
     public:
-        MyBitArray(uint64_t size);
+        explicit MyBitArray(uint64_t size);
         ~MyBitArray();
         bool test(uint64_t i);
         void set(uint64_t i);
