@@ -1,6 +1,6 @@
 #include <cstdint>
 #include <iostream>
-#include "../externals/xxHash/xxhash.h"
+#include "xxhash.hpp"
 
 #pragma once
 

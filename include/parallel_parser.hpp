@@ -14,7 +14,7 @@
 #include <cstring>
 #include <bitset>
 #include <chrono>
-//#include <boost/dynamic_bitset.hpp>
+#include <boost/dynamic_bitset.hpp>
 #include "functions_bloom_filter.hpp"
 #include "double_bloomfilter.hpp"
 
@@ -30,14 +30,12 @@ struct parse_input_ORIGINAL{
 
     
 
-    void operator()(std::string& input_file, __attribute__((unused)) std::string& output_file,
-                    off_t chunk_size,size_t active_chunks, size_t n_threads,
-                    off_t k, __attribute__((unused)) uint64_t min_slots, __attribute__((unused)) uint64_t min_abundance){
+    void operator()(std::string& input_file, std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k, uint64_t min_slots, uint64_t min_abundance){
 
         // Create the hash table
         //uint64_t ht_size = mathfunctions::next_prime(min_slots);
-        //uint64_t ht_size = mathfunctions::next_prime3mod4(min_slots);
-        //uint64_t kmer_len = k;
+        uint64_t ht_size = mathfunctions::next_prime3mod4(min_slots);
+        uint64_t kmer_len = k;
         //BasicAtomicHashTable* basic_atomic_hash_table = new BasicAtomicHashTable(ht_size, kmer_len);
         //BasicAtomicHashTableLong* basic_atomic_hash_table_long = new BasicAtomicHashTableLong(ht_size, kmer_len);
 
@@ -171,7 +169,7 @@ struct parse_input_ORIGINAL{
 
         //lambda function that gets chunks from the IN queue and calls the hash_kmers lambda
         //we feed this function to std::thread
-        auto string_worker = [&](__attribute__((unused)) size_t worker_id){
+        auto string_worker = [&](size_t worker_id){
 
             size_t buff_id;
             bool res;
@@ -346,8 +344,8 @@ struct parse_input_atomic_flag{
         // MODIFIED LONG
         auto hash_kmers =[&](chunk_type& chunk, size_t format){
 
-            off_t i =0;//, last;
-            //size_t n_strings=0;
+            off_t i =0, last;
+            size_t n_strings=0;
 
             RollingHasherDual* rolling_hasher = new RollingHasherDual(ht_size, kmer_len);
 
@@ -370,7 +368,7 @@ struct parse_input_atomic_flag{
                     // Store k-mer hash value here
                     uint64_t kmer_hash = 0;
                     // Store number of characters stored in the k-mer here
-                    off_t chars_in_kmer = 0;
+                    uint64_t chars_in_kmer = 0;
                     // Mask for relevant characters in the last k-mer block
                     uint8_t first_block_mask = 0;
                     // New character goes here
@@ -398,7 +396,7 @@ struct parse_input_atomic_flag{
                             for (int ii = 0; ii < kmer_bytes; ii++)
                                 kmer_string[ii] = 0;
                             chars_in_kmer = 0;
-                            //n_strings++;
+                            n_strings++;
                             rolling_hasher->reset();
                         } else {
                             // First get the drop out char
@@ -420,7 +418,7 @@ struct parse_input_atomic_flag{
 
                             // Update hash value
                             rolling_hasher->update_rolling_hash(new_char, drop_out_char);
-                            chars_in_kmer = std::min(chars_in_kmer+1, (off_t)kmer_len);
+                            chars_in_kmer = std::min(chars_in_kmer+1, kmer_len);
                                                         
                             // Build reverse k-mer
                             // I) Swap bytes and characters within bytes
@@ -469,8 +467,8 @@ struct parse_input_atomic_flag{
                             current_check_slot = kmer_hash;
                             kmer_was_found = false;
                             uint64_t probing_round = 0;
-                            //bool slot_is_in_use = false;
-                            //bool handled_successfully = false;
+                            bool slot_is_in_use = false;
+                            bool handled_successfully = false;
                             if (chars_in_kmer >= k)
                             {
                                 if (forward_is_canonical)
@@ -617,7 +615,7 @@ struct parse_input_atomic_flag{
                             for (int ii = 0; ii < kmer_bytes; ii++)
                                 kmer_string[ii] = 0;
                             chars_in_kmer = 0;
-                            //n_strings++;
+                            n_strings++;
                             rolling_hasher->reset();
                             continue;
                         }                        
@@ -636,7 +634,7 @@ struct parse_input_atomic_flag{
                             for (int ii = 0; ii < kmer_bytes; ii++)
                                 kmer_string[ii] = 0;
                             chars_in_kmer = 0;
-                            //n_strings++;
+                            n_strings++;
                             rolling_hasher->reset();
                         } else {
                             // First get the drop out char
@@ -707,9 +705,9 @@ struct parse_input_atomic_flag{
                             current_check_slot = kmer_hash;
                             kmer_was_found = false;
                             uint64_t probing_round = 0;
-                            //bool slot_is_in_use = false;
-                            //bool handled_successfully = false;
-                            if((off_t) chars_in_kmer >= k)
+                            bool slot_is_in_use = false;
+                            bool handled_successfully = false;
+                            if (chars_in_kmer >= k)
                             {
                                 if (forward_is_canonical)
                                 {
@@ -811,7 +809,7 @@ struct parse_input_atomic_flag{
 
         //lambda function that gets chunks from the IN queue and calls the hash_kmers lambda
         //we feed this function to std::thread
-        auto string_worker = [&](__attribute__((unused)) size_t worker_id){
+        auto string_worker = [&](size_t worker_id){
 
             size_t buff_id;
             bool res;
@@ -993,8 +991,8 @@ struct parse_input_pointer_atomic_flag{
         // MODIFIED LONG
         auto hash_kmers =[&](chunk_type& chunk, size_t format){
 
-            off_t i =0;//, last;
-            //size_t n_strings=0;
+            off_t i =0, last;
+            size_t n_strings=0;
 
             RollingHasherDual* rolling_hasher = new RollingHasherDual(ht_size, kmer_len);
             // --- Build k-mer factory ---
@@ -1025,7 +1023,7 @@ struct parse_input_pointer_atomic_flag{
                         {
                             rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
-                        if (kmer_factory->get_number_of_stored_characters() == (int)kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
                         {
                             current_kmer_slot = hash_table->process_kmer(kmer_factory, rolling_hasher, predecessor_kmer_exists, predecessor_kmer_slot); 
                             predecessor_kmer_exists = true;
@@ -1085,7 +1083,7 @@ struct parse_input_pointer_atomic_flag{
                         {
                             rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
-                        if (kmer_factory->get_number_of_stored_characters() == (int) kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
                         {
                             current_kmer_slot = hash_table->process_kmer(kmer_factory, rolling_hasher, predecessor_kmer_exists, predecessor_kmer_slot); 
                             predecessor_kmer_exists = true;
@@ -1111,7 +1109,7 @@ struct parse_input_pointer_atomic_flag{
 
         //lambda function that gets chunks from the IN queue and calls the hash_kmers lambda
         //we feed this function to std::thread
-        auto string_worker = [&](__attribute__((unused)) size_t worker_id){
+        auto string_worker = [&](size_t worker_id){
 
             size_t buff_id;
             bool res;
@@ -1307,8 +1305,8 @@ struct parse_input_pointer_atomic_variable{
         // MODIFIED LONG
         auto hash_kmers =[&](chunk_type& chunk, size_t format){
 
-            off_t i =0;//, last;
-            //size_t n_strings=0;
+            off_t i =0, last;
+            size_t n_strings=0;
 
             // Rolling hasher for hash table positions
             RollingHasherDual* rolling_hasher = new RollingHasherDual(ht_size, kmer_len);
@@ -1348,7 +1346,7 @@ struct parse_input_pointer_atomic_variable{
                             rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                             //bf_rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
-                        if (kmer_factory->get_number_of_stored_characters() == (int)kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
                         {
                             // Calculate Bloom filter hash values
                             bool found_in_bf = true;
@@ -1445,30 +1443,24 @@ struct parse_input_pointer_atomic_variable{
                             rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                             //bf_rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
-                        if (kmer_factory->get_number_of_stored_characters() == (int)kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
                         {
                             // Calculate Bloom filter hash values
                             bool found_in_bf = true;
-
                             // If k-mer is in bloom filter, process it
-                            /***
-                             *
-                             * This if is always true (?)
-                             */
                             if (found_in_bf || true)
                             {
-                                //current_kmer_slot = hash_table->process_kmer(kmer_factory, rolling_hasher, predecessor_kmer_exists, predecessor_kmer_slot);
-                                current_kmer_slot = hash_table->process_kmer_MT(kmer_factory, rolling_hasher, predecessor_kmer_exists, predecessor_kmer_slot);
+                                //current_kmer_slot = hash_table->process_kmer(kmer_factory, rolling_hasher, predecessor_kmer_exists, predecessor_kmer_slot); 
+                                current_kmer_slot = hash_table->process_kmer_MT(kmer_factory, rolling_hasher, predecessor_kmer_exists, predecessor_kmer_slot); 
                                 predecessor_kmer_exists = true;
                                 predecessor_kmer_slot = current_kmer_slot;
                             }
-
                             // If not in Bloom filter, do not process
                             else
                             {
                                 predecessor_kmer_exists = false;
                                 predecessor_kmer_slot = ht_size;
-                            }
+                            } 
                         }
                         i++;
                     }
@@ -1492,7 +1484,7 @@ struct parse_input_pointer_atomic_variable{
 
         //lambda function that gets chunks from the IN queue and calls the hash_kmers lambda
         //we feed this function to std::thread
-        auto string_worker = [&](__attribute__((unused)) size_t worker_id){
+        auto string_worker = [&](size_t worker_id){
 
             size_t buff_id;
             bool res;
@@ -1583,7 +1575,7 @@ template<class sym_type,
          bool is_gzipped=false>
 struct parse_input_atomic_flag_BF{
 
-    void operator()(uint64_t bf_modmulinv, uint64_t bf_multiplier, DoubleAtomicDoubleBloomFilter * bf, __attribute__((unused)) uint64_t bloom_filter_size,
+    void operator()(uint64_t bf_modmulinv, uint64_t bf_multiplier, DoubleAtomicDoubleBloomFilter * bf, uint64_t bloom_filter_size,
                     uint64_t rolling_hasher_mod, uint64_t hash_functions,
                     std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k, 
                     sym_type start_symbol, uint64_t min_slots, uint64_t min_abundance, int input_mode){
@@ -1703,8 +1695,8 @@ struct parse_input_atomic_flag_BF{
         // MODIFIED LONG
         auto hash_kmers =[&](chunk_type& chunk, size_t format){
 
-            off_t i =0;//, last;
-            //size_t n_strings=0;
+            off_t i =0, last;
+            size_t n_strings=0;
 
             //RollingHasherDual* rolling_hasher = new RollingHasherDual(ht_size, kmer_len);
             RollingHasherDual* bf_rolling_hasher = new RollingHasherDual(rolling_hasher_mod, kmer_len, bf_modmulinv, bf_multiplier, ht_size, true);
@@ -1757,7 +1749,7 @@ struct parse_input_atomic_flag_BF{
                             for (int ii = 0; ii < kmer_bytes; ii++)
                                 kmer_string[ii] = 0;
                             chars_in_kmer = 0;
-                            //n_strings++;
+                            n_strings++;
                             bf_rolling_hasher->reset();
                         } else {
                             // First get the drop out char
@@ -1836,9 +1828,9 @@ struct parse_input_atomic_flag_BF{
                                 current_check_slot = kmer_hash;
                                 kmer_was_found = false;
                                 uint64_t probing_round = 0;
-                                //bool slot_is_in_use = false;
-                                //bool handled_successfully = false;
-                                if ((off_t)chars_in_kmer >= k)
+                                bool slot_is_in_use = false;
+                                bool handled_successfully = false;
+                                if (chars_in_kmer >= k)
                                 {
                                     if (forward_is_canonical)
                                     {
@@ -1984,7 +1976,7 @@ struct parse_input_atomic_flag_BF{
                             for (int ii = 0; ii < kmer_bytes; ii++)
                                 kmer_string[ii] = 0;
                             chars_in_kmer = 0;
-                            //n_strings++;
+                            n_strings++;
                             bf_rolling_hasher->reset();
                             continue;
                         }                        
@@ -2003,7 +1995,7 @@ struct parse_input_atomic_flag_BF{
                             for (int ii = 0; ii < kmer_bytes; ii++)
                                 kmer_string[ii] = 0;
                             chars_in_kmer = 0;
-                            //n_strings++;
+                            n_strings++;
                             bf_rolling_hasher->reset();
                         } else {
                             // First get the drop out char
@@ -2083,9 +2075,9 @@ struct parse_input_atomic_flag_BF{
                                 current_check_slot = kmer_hash;
                                 kmer_was_found = false;
                                 uint64_t probing_round = 0;
-                                //bool slot_is_in_use = false;
-                                //bool handled_successfully = false;
-                                if ((off_t)chars_in_kmer >= k)
+                                bool slot_is_in_use = false;
+                                bool handled_successfully = false;
+                                if (chars_in_kmer >= k)
                                 {
                                     if (forward_is_canonical)
                                     {
@@ -2188,7 +2180,7 @@ struct parse_input_atomic_flag_BF{
 
         //lambda function that gets chunks from the IN queue and calls the hash_kmers lambda
         //we feed this function to std::thread
-        auto string_worker = [&](__attribute__((unused)) size_t worker_id){
+        auto string_worker = [&](size_t worker_id){
 
             size_t buff_id;
             bool res;
@@ -2261,7 +2253,7 @@ struct parse_input_pointer_atomic_variable_BF{
 
     
 
-    void operator()(uint64_t bf_modmulinv, uint64_t bf_multiplier, DoubleAtomicDoubleBloomFilter * bf, __attribute__((unused)) uint64_t bloom_filter_size,
+    void operator()(uint64_t bf_modmulinv, uint64_t bf_multiplier, DoubleAtomicDoubleBloomFilter * bf, uint64_t bloom_filter_size, 
                     uint64_t rolling_hasher_mod, uint64_t hash_functions,
                     std::string& input_file,  std::string& output_file, off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k,
                     sym_type start_symbol, uint64_t min_slots, uint64_t min_abundance, int input_mode, bool debug){
@@ -2276,8 +2268,8 @@ struct parse_input_pointer_atomic_variable_BF{
         uint64_t ht_size = mathfunctions::next_prime3mod4(min_slots);
         uint64_t kmer_len = k;
         //BasicAtomicHashTable* basic_atomic_hash_table = new BasicAtomicHashTable(ht_size, kmer_len);
-        uint64_t kmer_blocks = std::ceil(double(kmer_len)/32.0);
-        auto* hash_table = new PointerHashTableCanonicalAV(ht_size, kmer_len, kmer_blocks);
+        uint64_t kmer_blocks = std::ceil(kmer_len/32.0);
+        PointerHashTableCanonicalAV* hash_table = new PointerHashTableCanonicalAV(ht_size, kmer_len, kmer_blocks);
 
         using chunk_type = text_chunk<sym_type>;
 
@@ -2392,21 +2384,21 @@ struct parse_input_pointer_atomic_variable_BF{
             //poppipop += 1;
             //std::cout << "Haloo 1:" << poppipop << "\n";
             
-            off_t i =0;//, last;
-            //size_t n_strings=0;
+            off_t i =0, last;
+            size_t n_strings=0;
 
             // Rolling hasher for hash table positions
             //RollingHasherDual* rolling_hasher = new RollingHasherDual(ht_size, kmer_len);
             // Rolling hasher for bloom filter root hashes 
             //RollingHasherDual* bf_rolling_hasher = new RollingHasherDual(rolling_hasher_mod, kmer_len, bf_modmulinv, bf_multiplier, ht_size);
-            auto* bf_rolling_hasher = new RollingHasherDual(rolling_hasher_mod, kmer_len, bf_modmulinv, bf_multiplier, ht_size, true);
+            RollingHasherDual* bf_rolling_hasher = new RollingHasherDual(rolling_hasher_mod, kmer_len, bf_modmulinv, bf_multiplier, ht_size, true);
             
             // Vector for storing hash values
             //std::vector<uint64_t> bloom_filter_hash_values(hash_functions, 0);
             std::vector<uint64_t> dbf_hash_values(hash_functions, 0);
 
             // --- Build k-mer factory ---
-            auto* kmer_factory = new KMerFactoryCanonical2BC(k);
+            KMerFactoryCanonical2BC* kmer_factory = new KMerFactoryCanonical2BC(k);
 
             //std::cout << "Haloo 2:" << poppipop << "\n";
             
@@ -2438,7 +2430,7 @@ struct parse_input_pointer_atomic_variable_BF{
                             //rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                             bf_rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
-                        if (kmer_factory->get_number_of_stored_characters() == (int)kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
                         {
                             // Calculate Bloom filter hash values
 
@@ -2545,7 +2537,7 @@ struct parse_input_pointer_atomic_variable_BF{
                             //rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                             bf_rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
-                        if (kmer_factory->get_number_of_stored_characters() == (int)kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
                         {
                             // Calculate Bloom filter hash values
                             
@@ -2592,7 +2584,7 @@ struct parse_input_pointer_atomic_variable_BF{
 
         //lambda function that gets chunks from the IN queue and calls the hash_kmers lambda
         //we feed this function to std::thread
-        auto string_worker = [&](__attribute__((unused)) size_t worker_id){
+        auto string_worker = [&](size_t worker_id){
             //std::cout << "Creating new worker " << worker_id << "\n";
             size_t buff_id;
             bool res;
@@ -2690,10 +2682,10 @@ struct parse_input_pointer_atomic_variable_BLOOM_FILTERING{
 
     
 
-    void operator()(uint64_t bf_modmulinv, uint64_t bf_multiplier, DoubleAtomicDoubleBloomFilter * adbf, __attribute__((unused)) uint64_t bloom_filter_size,
+    void operator()(uint64_t bf_modmulinv, uint64_t bf_multiplier, DoubleAtomicDoubleBloomFilter * adbf, uint64_t bloom_filter_size, 
                     uint64_t rolling_hasher_mod, uint64_t hash_functions,
                     std::string& input_file,  off_t chunk_size, size_t active_chunks, size_t n_threads, off_t k,
-                    sym_type start_symbol, int input_mode, __attribute__((unused)) bool debug){
+                    sym_type start_symbol, int input_mode, bool debug){
         
         std::cout << "Starting parallel bloom filtering\n";
 
@@ -2797,22 +2789,22 @@ struct parse_input_pointer_atomic_variable_BLOOM_FILTERING{
         // MODIFIED LONG
         auto bloom_filter_kmers =[&](chunk_type& chunk, size_t format){
 
-            off_t i =0;//, last;
-            //size_t n_strings=0;
+            off_t i =0, last;
+            size_t n_strings=0;
 
             // Rolling hasher for hash table positions
             //RollingHasherDual* rolling_hasher = new RollingHasherDual(ht_size, kmer_len);
             // Rolling hasher for bloom filter root hashes 
             //RollingHasherDual* bf_rolling_hasher = new RollingHasherDual(rolling_hasher_mod, kmer_len, bf_modmulinv, bf_multiplier, ht_size);
             //RollingHasherDual* bf_rolling_hasher = new RollingHasherDual(rolling_hasher_mod, kmer_len, bf_modmulinv, bf_multiplier, ht_size, true);
-            auto* bf_rolling_hasher = new RollingHasherDual(rolling_hasher_mod, kmer_len, bf_modmulinv, bf_multiplier, true);
+            RollingHasherDual* bf_rolling_hasher = new RollingHasherDual(rolling_hasher_mod, kmer_len, bf_modmulinv, bf_multiplier, true);
 
             // Vector for storing hash values
             //std::vector<uint64_t> bloom_filter_hash_values(hash_functions, 0);
             std::vector<uint64_t> adbf_hash_values(hash_functions, 0);
 
             // --- Build k-mer factory ---
-            auto* kmer_factory = new KMerFactoryCanonical2BC(k);
+            KMerFactoryCanonical2BC* kmer_factory = new KMerFactoryCanonical2BC(k);
 
             switch (format) {
                 case PLAIN://one-string-per-line format
@@ -2835,7 +2827,7 @@ struct parse_input_pointer_atomic_variable_BLOOM_FILTERING{
                             bf_rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
 
-                        if (kmer_factory->get_number_of_stored_characters() == (int)kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
                         {
                             // Insert the k-mer in the bloom filter
                             uint64_t current_root_hash = std::min(bf_rolling_hasher->get_current_hash_backward_rqless(), bf_rolling_hasher->get_current_hash_forward_rqless());
@@ -2895,7 +2887,7 @@ struct parse_input_pointer_atomic_variable_BLOOM_FILTERING{
                             bf_rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
                         
-                        if (kmer_factory->get_number_of_stored_characters() == (int)kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
                         {
                             // Insert the k-mer in the bloom filter
                             uint64_t current_root_hash = std::min(bf_rolling_hasher->get_current_hash_backward_rqless(), bf_rolling_hasher->get_current_hash_forward_rqless());
@@ -2928,7 +2920,7 @@ struct parse_input_pointer_atomic_variable_BLOOM_FILTERING{
 
         //lambda function that gets chunks from the IN queue and calls the hash_kmers lambda
         //we feed this function to std::thread
-        auto string_worker = [&](__attribute__((unused)) size_t worker_id){
+        auto string_worker = [&](size_t worker_id){
 
             size_t buff_id;
             bool res;

@@ -98,8 +98,8 @@ namespace mathfunctions
 
     uint64_t modular_multiplicative_inverse_coprimes(int64_t A, int64_t M)
     {
-        //int64_t AA = A;
-        //int64_t MM = M;
+        int64_t AA = A;
+        int64_t MM = M;
         int64_t m0 = M;
         int64_t y = 0, x = 1;
     

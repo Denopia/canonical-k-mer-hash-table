@@ -130,7 +130,7 @@ class AdderHasher1
     
     public:
 
-        explicit AdderHasher1(uint64_t slots);
+        AdderHasher1(uint64_t slots);
 
         ~AdderHasher1(){};
 
@@ -142,9 +142,9 @@ class ProbeHasher1
 {
     public:
 
-        ProbeHasher1()= default;
+        ProbeHasher1(){};
 
-        ~ProbeHasher1()= default;
+        ~ProbeHasher1(){};
 
         // Double hahsing probing
         uint64_t probe_1(uint64_t item, uint64_t M);
@@ -156,6 +156,6 @@ class ProbeHasher1
         uint64_t probe_3(uint64_t iteration);
 
         // Better quadratic probing
-        static uint64_t probe_4(uint64_t iteration, uint64_t position, uint64_t modulo);
+        uint64_t probe_4(uint64_t iteration, uint64_t position, uint64_t modulo);
 
 };

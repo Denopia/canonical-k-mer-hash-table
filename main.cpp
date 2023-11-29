@@ -8,6 +8,8 @@
 #include "mybitarray.hpp"
 #include "double_bloomfilter.hpp"
 
+#include "xxhash.hpp"
+
 #include <cmath>
 //#include <boost/dynamic_bitset.hpp>
 #include <chrono>
@@ -35,15 +37,15 @@ int main(int argc, char const* argv[])
     uint64_t min_abundance = 0;
     size_t n_threads = 3;//number of threads
 
-    std::string input_file;
-    std::string output_file;
+    std::string input_file = "";
+    std::string output_file = "";
 
     bool verbose = false;
     bool user_wants_help = false;
     bool debug = false;
 
     uint64_t bloom_filter_1_size = 1000000000;
-    //uint64_t bloom_filter_2_size = 1000000000;
+    uint64_t bloom_filter_2_size = 1000000000;
     uint64_t bf1hfn = 1;
     uint64_t bf2hfn = 1;
     double fpr = 0.01;

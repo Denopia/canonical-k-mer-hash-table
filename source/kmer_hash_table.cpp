@@ -337,7 +337,7 @@ uint64_t PointerHashTableCanonicalAF::find_and_increment(KMerFactoryCanonical2BC
             }
             // Free slot in secondary array
             secondary_free_slots[slot_in_secondary] = 1;
-            for (uint64_t o = 0; o < kmer_blocks; o++)
+            for (int o = 0; o < kmer_blocks; o++)
                 secondary_array[slot_in_secondary*kmer_blocks+o] = 0;
             // Release locks
             //main_locks[kmer_slot].clear(std::memory_order_release);
@@ -4292,14 +4292,13 @@ uint64_t PointerHashTableCanonicalAV::count_reconstruction_chain_length_in_slot(
 void PointerHashTableCanonicalAV::analyze_pointer_chain_lengths()
 {
     uint64_t chain_lengths = 100000;
-    //uint64_t counts[chain_lengths];
-    uint64_t counts[100000]={0};
-    for (uint64_t i = 0; i < chain_lengths; i++){
+    uint64_t counts[chain_lengths];
+    for (int i = 0; i < chain_lengths; i++){
         counts[i] = 0;
     }
     uint64_t chain_length = 0;
 
-    for (uint64_t i = 0; i < size; i++)
+    for (int i = 0; i < size; i++)
     {
         if (hash_table_array[i].is_occupied()){
             chain_length = count_reconstruction_chain_length_in_slot(i);
@@ -4309,7 +4308,7 @@ void PointerHashTableCanonicalAV::analyze_pointer_chain_lengths()
         }
     }
     std::ofstream output_file("KAARME_RECONSTRUCTION_CHAIN_LENGTHS.txt");
-    for (uint64_t i = 0; i < chain_lengths; i++){
+    for (int i = 0; i < chain_lengths; i++){
         output_file << i << ":" << counts[i] << "\n";
     }
     output_file.close();
@@ -4324,7 +4323,7 @@ void PointerHashTableCanonicalAV::write_kmers_on_disk_separately_even_faster(uin
     uint64_t kmers_skipped = 0;
     // First count/find how many times each k-mer is referenced
     //std::vector<uint8_t> referenced(size, 0);
-    for (uint64_t i = 0; i < size; i++)
+    for (int i = 0; i < size; i++)
     {
         //hash_table_array[i].unset_is_flagged_1();
         kmer_data = hash_table_array[i].get_data();

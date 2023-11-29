@@ -31,7 +31,7 @@ namespace purestringfunctions
 
     int is_canonical(std::string & s)
     {
-        for (size_t i = 0; i < s.length(); i++)
+        for (int i = 0; i < s.length(); i++)
         {
             if (s.at(i) < reverse_char(s.at(s.length()-i-1)))
             {

@@ -7,8 +7,8 @@
 */
 
 
-FastaReader::FastaReader(std::string path, bool reverse) :
-fasta_path(std::move(path)), current_line_number(0), current_read_number(0), current_read_length(0), reverse_reads_enabled(reverse), current_is_forward(false)
+FastaReader::FastaReader(std::string path, bool reverse) : 
+fasta_path(path), current_read_length(0), current_line_number(0), current_read_number(0), reverse_reads_enabled(reverse), current_is_forward(false)
 {
     if (!reverse)
     {
@@ -74,12 +74,12 @@ void FastaReader::roll_to_next_read()
     }
 }
 
-uint64_t FastaReader::get_current_read_length() const
+int FastaReader::get_current_read_length()
 {
     return current_read_length;
 }
 
-bool FastaReader::read_is_loaded() const
+bool FastaReader::read_is_loaded()
 {
     return i_have_reads;
 }
@@ -88,7 +88,7 @@ char FastaReader::get_current_read_character_at(int position)
 {
     if (current_is_forward)
     {
-        if (current_read_length > (size_t)position)
+        if (current_read_length > position)
         {
             return current_read.at(position);
         }
@@ -100,7 +100,7 @@ char FastaReader::get_current_read_character_at(int position)
     }
     else
     {
-        if (current_read_length > (size_t)position)
+        if (current_read_length > position)
         {
             return purestringfunctions::reverse_char(current_read.at(current_read_length - position - 1));
         }
