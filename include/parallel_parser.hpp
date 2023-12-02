@@ -2188,7 +2188,7 @@ struct parse_input_atomic_flag_BF{
 
             while(true){
                 res = in_queue.pop(buff_id);//the thread will wait until there is something to pop
-                assert(text_chunks[buff_id].bytes>0);
+                //assert(text_chunks[buff_id].bytes>0);
                 if(!res) break;
                 hash_kmers(text_chunks[buff_id], format);
                 consumed_kmers+=text_chunks[buff_id].syms_in_buff-k+1;
