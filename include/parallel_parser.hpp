@@ -469,7 +469,7 @@ struct parse_input_atomic_flag{
                             uint64_t probing_round = 0;
                             bool slot_is_in_use = false;
                             bool handled_successfully = false;
-                            if (chars_in_kmer >= k)
+                            if (chars_in_kmer >= uint64_t(k))
                             {
                                 if (forward_is_canonical)
                                 {
@@ -707,7 +707,7 @@ struct parse_input_atomic_flag{
                             uint64_t probing_round = 0;
                             bool slot_is_in_use = false;
                             bool handled_successfully = false;
-                            if (chars_in_kmer >= k)
+                            if (chars_in_kmer >= uint64_t(k))
                             {
                                 if (forward_is_canonical)
                                 {
@@ -1023,7 +1023,7 @@ struct parse_input_pointer_atomic_flag{
                         {
                             rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
-                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == int(kmer_len))
                         {
                             current_kmer_slot = hash_table->process_kmer(kmer_factory, rolling_hasher, predecessor_kmer_exists, predecessor_kmer_slot); 
                             predecessor_kmer_exists = true;
@@ -1083,7 +1083,7 @@ struct parse_input_pointer_atomic_flag{
                         {
                             rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
-                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == int(kmer_len))
                         {
                             current_kmer_slot = hash_table->process_kmer(kmer_factory, rolling_hasher, predecessor_kmer_exists, predecessor_kmer_slot); 
                             predecessor_kmer_exists = true;
@@ -1346,7 +1346,7 @@ struct parse_input_pointer_atomic_variable{
                             rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                             //bf_rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
-                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == int(kmer_len))
                         {
                             // Calculate Bloom filter hash values
                             bool found_in_bf = true;
@@ -1443,7 +1443,7 @@ struct parse_input_pointer_atomic_variable{
                             rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                             //bf_rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
-                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == int(kmer_len))
                         {
                             // Calculate Bloom filter hash values
                             bool found_in_bf = true;
@@ -1830,7 +1830,7 @@ struct parse_input_atomic_flag_BF{
                                 uint64_t probing_round = 0;
                                 bool slot_is_in_use = false;
                                 bool handled_successfully = false;
-                                if (chars_in_kmer >= k)
+                                if (chars_in_kmer >= uint64_t(k))
                                 {
                                     if (forward_is_canonical)
                                     {
@@ -2077,7 +2077,7 @@ struct parse_input_atomic_flag_BF{
                                 uint64_t probing_round = 0;
                                 bool slot_is_in_use = false;
                                 bool handled_successfully = false;
-                                if (chars_in_kmer >= k)
+                                if (chars_in_kmer >= uint64_t(k))
                                 {
                                     if (forward_is_canonical)
                                     {
@@ -2430,7 +2430,7 @@ struct parse_input_pointer_atomic_variable_BF{
                             //rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                             bf_rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
-                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == int(kmer_len))
                         {
                             // Calculate Bloom filter hash values
 
@@ -2537,7 +2537,7 @@ struct parse_input_pointer_atomic_variable_BF{
                             //rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                             bf_rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
-                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == int(kmer_len))
                         {
                             // Calculate Bloom filter hash values
                             
@@ -2827,7 +2827,7 @@ struct parse_input_pointer_atomic_variable_BLOOM_FILTERING{
                             bf_rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
 
-                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == int(kmer_len))
                         {
                             // Insert the k-mer in the bloom filter
                             uint64_t current_root_hash = std::min(bf_rolling_hasher->get_current_hash_backward_rqless(), bf_rolling_hasher->get_current_hash_forward_rqless());
@@ -2887,7 +2887,7 @@ struct parse_input_pointer_atomic_variable_BLOOM_FILTERING{
                             bf_rolling_hasher->update_rolling_hash(kmer_factory->get_forward_newest_character(), kmer_factory->get_forward_pushed_off_character());
                         }
                         
-                        if (kmer_factory->get_number_of_stored_characters() == kmer_len)
+                        if (kmer_factory->get_number_of_stored_characters() == int(kmer_len))
                         {
                             // Insert the k-mer in the bloom filter
                             uint64_t current_root_hash = std::min(bf_rolling_hasher->get_current_hash_backward_rqless(), bf_rolling_hasher->get_current_hash_forward_rqless());

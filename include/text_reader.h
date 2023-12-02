@@ -164,8 +164,10 @@ off_t read_chunk_from_file(int fd, // file descriptor
         next_has_broken_header = true;
         size_t i = chunk.syms_in_buff - 1 - k - fake_symbols; 
         //size_t i = chunk.syms_in_buff;
+        
         //while(i-->0 && chunk.buffer[i]!=start_symbol){
-        while(i >= 0) {
+        //while(i >= 0) {
+        while(true) {
             if(chunk.buffer[i]==start_symbol)
                 break;
             if(chunk.buffer[i]=='\n'){
@@ -173,7 +175,12 @@ off_t read_chunk_from_file(int fd, // file descriptor
                 next_has_broken_header = false;
                 break;
             }
+            if (i == 0)
+            {
+                break;
+            }
             i--;
+            
         }
     } else {
         //std::cout << "No header checking\n";

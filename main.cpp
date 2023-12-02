@@ -186,11 +186,11 @@ int main(int argc, char const* argv[])
         exit(1);
     }
 
-    if (min_abundance < 0)
-    {
-        std::cout << "Minimum k-mer frequency for outputting must be set\n";
-        exit(1);
-    }
+    //if (min_abundance < 0)
+    //{
+    //    std::cout << "Minimum k-mer frequency for outputting must be set\n";
+    //    exit(1);
+    //}
 
     if (input_file == "")
     {

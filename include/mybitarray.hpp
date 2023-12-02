@@ -126,7 +126,7 @@ bool MyAtomicBitArrayFT::set(uint64_t i)
 void MyAtomicBitArrayFT::squeeze()
 {
     squeezed = true;
-    for (int i = 0; 2*i+1 < bytes; i++){
+    for (uint64_t i = 0; 2*i+1 < bytes; i++){
         uint8_t new_value = 0;
 
         if (2*i < half_bytes){
@@ -235,7 +235,7 @@ bool MyAtomicBitVector::set(uint64_t i)
 void MyAtomicBitVector::squeeze()
 {
     squeezed = true;
-    for (int i = 0; 2*i+1 < bytes; i++){
+    for (uint64_t i = 0; 2*i+1 < bytes; i++){
         uint8_t new_value = 0;
 
         new_value = new_value | ((bitvector[2*i].value.load(std::memory_order_acquire)&64)<<1);
@@ -253,7 +253,7 @@ void MyAtomicBitVector::squeeze()
         while(!bitvector[i].value.compare_exchange_strong(old_value, new_value, std::memory_order_acq_rel, std::memory_order_relaxed)){}
     }
     bytes = bytes / 2;
-    for (int i = 0; i < bytes; i++)
+    for (uint64_t i = 0; i < bytes; i++)
         bitvector.pop_back();
     bitvector.shrink_to_fit();
 }

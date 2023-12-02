@@ -337,7 +337,7 @@ uint64_t PointerHashTableCanonicalAF::find_and_increment(KMerFactoryCanonical2BC
             }
             // Free slot in secondary array
             secondary_free_slots[slot_in_secondary] = 1;
-            for (int o = 0; o < kmer_blocks; o++)
+            for (uint64_t o = 0; o < kmer_blocks; o++)
                 secondary_array[slot_in_secondary*kmer_blocks+o] = 0;
             // Release locks
             //main_locks[kmer_slot].clear(std::memory_order_release);
@@ -623,7 +623,7 @@ bool PointerHashTableCanonicalAF::full_kmer_slot_check(KMerFactoryCanonical2BC* 
                 }
             }
             // Update the leftmost unchecked character
-            if ((L >= 0) && (L < kmer_len))
+            if ((L >= 0) && (L < int(kmer_len)))
             {
                 if (kmer_factory->forward_kmer_is_canonical())
                 {
@@ -675,7 +675,7 @@ bool PointerHashTableCanonicalAF::full_kmer_slot_check(KMerFactoryCanonical2BC* 
                 }
             }
             // Update the rightmost unchecked character
-            if ((R >= 0) && (R < kmer_len))
+            if ((R >= 0) && (R < int(kmer_len)))
             {
                 if (kmer_factory->forward_kmer_is_canonical())
                 {
@@ -856,7 +856,7 @@ bool PointerHashTableCanonicalAF::full_kmer_slot_check(KMerFactoryCanonical2BC* 
 uint64_t PointerHashTableCanonicalAF::get_secondary_array_char(uint64_t secondary_array_position, int char_position)
 {
     //std::cout << "Asking for secondary array position " << secondary_array_position << " character at position " << char_position << "\n";
-    if ((char_position < 0) || (char_position > kmer_len - 1))
+    if ((char_position < 0) || (char_position > int(kmer_len) - 1))
     {
         std::cout << "Error in checking k-mer in the secondary array\n";
         exit(1);
@@ -1001,7 +1001,7 @@ bool PointerHashTableCanonicalAF::full_kmer_slot_check_NO_SECONDARY(KMerFactoryC
                 }
             }
             // Update the leftmost unchecked character
-            if ((L >= 0) && (L < kmer_len))
+            if ((L >= 0) && (L < int(kmer_len)))
             {
                 if (kmer_factory->forward_kmer_is_canonical())
                 {
@@ -1070,7 +1070,7 @@ bool PointerHashTableCanonicalAF::full_kmer_slot_check_NO_SECONDARY(KMerFactoryC
                 }
             }
             // Update the rightmost unchecked character
-            if ((R >= 0) && (R < kmer_len))
+            if ((R >= 0) && (R < int(kmer_len)))
             {
                 if (kmer_factory->forward_kmer_is_canonical())
                 {
@@ -1251,7 +1251,7 @@ uint64_t PointerHashTableCanonicalAF::insert_new_kmer_in_secondary(KMerFactoryCa
     // Find the next free slot in secondary
     bool empty_secondary_slot_found = false;
     while(secondary_lock.test_and_set(std::memory_order_acquire));
-    for (int j = 0; j < max_secondary_slots; j++)
+    for (uint64_t j = 0; j < max_secondary_slots; j++)
     {
         if (secondary_free_slots[j] == 1)
         {
@@ -1278,7 +1278,7 @@ uint64_t PointerHashTableCanonicalAF::insert_new_kmer_in_secondary(KMerFactoryCa
     secondary_free_slots[smallest_unused_secondary_slot] = 0;
 
     hash_table_array[kmer_slot].set_predecessor_slot(smallest_unused_secondary_slot,false);
-    for (int i = 0; i < kmer_factory->number_of_blocks; i++)
+    for (uint64_t i = 0; i < uint64_t(kmer_factory->number_of_blocks); i++)
     {
         //std::cout << "Secondary block " << i << " is " << kmer_factory->get_canonical_block(i) << "\n";
         secondary_array[smallest_unused_secondary_slot*kmer_factory->number_of_blocks + i] = kmer_factory->get_canonical_block(i);
@@ -1601,8 +1601,8 @@ std::string PointerHashTableCanonicalAF::reconstruct_kmer_in_slot(uint64_t slot)
         //int Rs = Ls + kmer_len - 1;
         int a;
         int b;
-        uint64_t query_char;
-        uint64_t array_char;
+        //uint64_t query_char;
+        //uint64_t array_char;
         uint64_t secondary_array_position = hash_table_array[position].get_predecessor_slot();
         //std::cout << "Secondary array is " << secondary_array[secondary_array_position] << "\n";
         if (!pir)
@@ -1632,7 +1632,7 @@ std::string PointerHashTableCanonicalAF::reconstruct_kmer_in_slot(uint64_t slot)
         }
     }
     std::string return_kmer = "";
-    for (int i = 0; i < kmer_len; i++)
+    for (uint64_t i = 0; i < kmer_len; i++)
     {
         return_kmer = return_kmer + twobitstringfunctions::int2char(kmer_characters[i]);
     }
@@ -1675,7 +1675,7 @@ void PointerHashTableCanonicalAF::write_kmers_on_disk_separately_even_faster(uin
     std::ofstream output_file(output_path);
     // First count/find how many times each k-mer is referenced
     //std::vector<uint8_t> referenced(size, 0);
-    for (int i = 0; i < size; i++)
+    for (uint64_t i = 0; i < size; i++)
     {
         hash_table_array[i].unset_is_flagged_1();
         if ((hash_table_array[i].is_occupied()) && (hash_table_array[i].predecessor_exists()))
@@ -1842,7 +1842,7 @@ void PointerHashTableCanonicalAF::write_kmers_on_disk_separately_faster(uint64_t
     std::ofstream output_file(output_path);
     // First count/find how many times each k-mer is referenced
     std::vector<uint8_t> referenced(size, 0);
-    for (int i = 0; i < size; i++)
+    for (uint64_t i = 0; i < size; i++)
     {
         if ((hash_table_array[i].is_occupied()) && (hash_table_array[i].predecessor_exists()))
         {
@@ -1999,7 +1999,7 @@ BasicAtomicFlagHashTableLong::BasicAtomicFlagHashTableLong(uint64_t s, uint32_t 
     kmer_locks = new std::atomic_flag[s];
     kmer_array = new uint8_t[s*kmer_bytes];
     counts = new uint16_t[s];
-    for (int i = 0; i < s; i++)
+    for (uint64_t i = 0; i < s; i++)
         kmer_locks[i].clear();
 }
 
@@ -2016,7 +2016,7 @@ void BasicAtomicFlagHashTableLong::write_kmers(uint64_t min_abundance, std::stri
     //std::cout << "hash table size is = " << size << "\n";
     std::ofstream output_file(output_path);
 
-    for(int i = 0; i < size; i++)
+    for(uint64_t i = 0; i < size; i++)
     {   
         // Write k-mer in the output file only if its count is at least min_abundance
         if (counts[i] >= min_abundance)
@@ -2026,7 +2026,7 @@ void BasicAtomicFlagHashTableLong::write_kmers(uint64_t min_abundance, std::stri
             int unwritten_byte_chars = kmer_len % 4;
             if (unwritten_byte_chars == 0)
                 unwritten_byte_chars = 4;
-            for (int j = 0; j < kmer_len; j++)
+            for (uint64_t j = 0; j < kmer_len; j++)
             {
                 
                 //std::cout << "Byte position " << current_byte_pos << " and value is " << std::bitset<8>(kmer_array[current_byte_pos]) << "\n";
@@ -2074,7 +2074,7 @@ void BasicAtomicVariableHashTableLong::write_kmers(uint64_t min_abundance, std::
 {
     std::ofstream output_file(output_path);
 
-    for(int i = 0; i < size; i++)
+    for(uint64_t i = 0; i < size; i++)
     {   
         // Write k-mer in the output file only if its count is at least min_abundance
         if ((counts[i].load(std::memory_order_acquire)>>1) >= min_abundance)
@@ -2084,7 +2084,7 @@ void BasicAtomicVariableHashTableLong::write_kmers(uint64_t min_abundance, std::
             int unwritten_byte_chars = kmer_len % 4;
             if (unwritten_byte_chars == 0)
                 unwritten_byte_chars = 4;
-            for (int j = 0; j < kmer_len; j++)
+            for (uint64_t j = 0; j < kmer_len; j++)
             {
                 
                 //std::cout << "Byte position " << current_byte_pos << " and value is " << std::bitset<8>(kmer_array[current_byte_pos]) << "\n";
@@ -2242,7 +2242,7 @@ uint64_t PointerHashTableCanonicalAV::process_kmer_MT(KMerFactoryCanonical2BC* k
                 // Take lock
                 bool empty_secondary_slot_found = false;
                 while(secondary_lock.test_and_set(std::memory_order_acquire));
-                for (int j = 0; j < max_secondary_slots; j++)
+                for (uint64_t j = 0; j < max_secondary_slots; j++)
                 {
                     if (secondary_free_slots[j] == 1)
                     {
@@ -2456,7 +2456,7 @@ uint64_t PointerHashTableCanonicalAV::process_kmer_MT(KMerFactoryCanonical2BC* k
                         {
                             secondary_free_slots[slot_in_secondary] = 1;
                             secondary_slots_in_use -= 1;
-                            for (int o = 0; o < kmer_blocks; o++)
+                            for (uint64_t o = 0; o < kmer_blocks; o++)
                                 secondary_array[slot_in_secondary*kmer_blocks+o] = 0;
                         }
                     }
@@ -2659,7 +2659,7 @@ uint64_t PointerHashTableCanonicalAV::find_and_increment(KMerFactoryCanonical2BC
             {
                 secondary_free_slots[slot_in_secondary] = 1;
                 secondary_slots_in_use -= 1;
-                for (int o = 0; o < kmer_blocks; o++)
+                for (uint64_t o = 0; o < kmer_blocks; o++)
                     secondary_array[slot_in_secondary*kmer_blocks+o] = 0;
             }
             // Release lock
@@ -2849,7 +2849,7 @@ bool PointerHashTableCanonicalAV::full_kmer_slot_check(KMerFactoryCanonical2BC* 
                 }
             }
             // Update the leftmost unchecked character
-            if ((L >= 0) && (L < kmer_len))
+            if ((L >= 0) && (L < int(kmer_len)))
             {
                 if (kmer_factory->forward_kmer_is_canonical())
                 {
@@ -2898,7 +2898,7 @@ bool PointerHashTableCanonicalAV::full_kmer_slot_check(KMerFactoryCanonical2BC* 
                 }
             }
             // Update the rightmost unchecked character
-            if ((R >= 0) && (R < kmer_len))
+            if ((R >= 0) && (R < int(kmer_len)))
             {
                 if (kmer_factory->forward_kmer_is_canonical())
                 {
@@ -3073,7 +3073,7 @@ bool PointerHashTableCanonicalAV::full_kmer_slot_check(KMerFactoryCanonical2BC* 
 uint64_t PointerHashTableCanonicalAV::get_secondary_array_char(uint64_t secondary_array_position, int char_position)
 {
     //std::cout << "Asking for secondary array position " << secondary_array_position << " character at position " << char_position << "\n";
-    if ((char_position < 0) || (char_position > kmer_len - 1))
+    if ((char_position < 0) || (char_position > int(kmer_len) - 1))
     {
         std::cout << "Error in checking k-mer in the secondary array\n";
         exit(1);
@@ -3373,7 +3373,7 @@ bool PointerHashTableCanonicalAV::full_kmer_slot_check_NO_SECONDARY(KMerFactoryC
                 }
             }
             // Update the leftmost unchecked character
-            if ((L >= 0) && (L < kmer_len))
+            if ((L >= 0) && (L < int(kmer_len)))
             {
                 if (kmer_factory->forward_kmer_is_canonical())
                 {
@@ -3442,7 +3442,7 @@ bool PointerHashTableCanonicalAV::full_kmer_slot_check_NO_SECONDARY(KMerFactoryC
                 }
             }
             // Update the rightmost unchecked character
-            if ((R >= 0) && (R < kmer_len))
+            if ((R >= 0) && (R < int(kmer_len)))
             {
                 if (kmer_factory->forward_kmer_is_canonical())
                 {
@@ -3689,7 +3689,7 @@ uint64_t PointerHashTableCanonicalAV::insert_new_kmer_in_secondary(KMerFactoryCa
     // Take lock
     bool empty_secondary_slot_found = false;
     while(secondary_lock.test_and_set(std::memory_order_acquire));
-    for (int j = 0; j < max_secondary_slots; j++)
+    for (uint64_t j = 0; j < max_secondary_slots; j++)
     {
         if (secondary_free_slots[j] == 1)
         {
@@ -4043,7 +4043,7 @@ std::string PointerHashTableCanonicalAV::reconstruct_kmer_in_slot(uint64_t slot)
         }
     }
     std::string return_kmer = "";
-    for (int i = 0; i < kmer_len; i++)
+    for (uint64_t i = 0; i < kmer_len; i++)
     {
         return_kmer = return_kmer + twobitstringfunctions::int2char(kmer_characters[i]);
     }
@@ -4292,13 +4292,13 @@ uint64_t PointerHashTableCanonicalAV::count_reconstruction_chain_length_in_slot(
 void PointerHashTableCanonicalAV::analyze_pointer_chain_lengths()
 {
     uint64_t chain_lengths = 100000;
-    uint64_t counts[chain_lengths];
-    for (int i = 0; i < chain_lengths; i++){
+    uint64_t counts[100000];
+    for (uint64_t i = 0; i < chain_lengths; i++){
         counts[i] = 0;
     }
     uint64_t chain_length = 0;
 
-    for (int i = 0; i < size; i++)
+    for (uint64_t i = 0; i < size; i++)
     {
         if (hash_table_array[i].is_occupied()){
             chain_length = count_reconstruction_chain_length_in_slot(i);
@@ -4308,7 +4308,7 @@ void PointerHashTableCanonicalAV::analyze_pointer_chain_lengths()
         }
     }
     std::ofstream output_file("KAARME_RECONSTRUCTION_CHAIN_LENGTHS.txt");
-    for (int i = 0; i < chain_lengths; i++){
+    for (uint64_t i = 0; i < chain_lengths; i++){
         output_file << i << ":" << counts[i] << "\n";
     }
     output_file.close();
@@ -4323,7 +4323,7 @@ void PointerHashTableCanonicalAV::write_kmers_on_disk_separately_even_faster(uin
     uint64_t kmers_skipped = 0;
     // First count/find how many times each k-mer is referenced
     //std::vector<uint8_t> referenced(size, 0);
-    for (int i = 0; i < size; i++)
+    for (uint64_t i = 0; i < size; i++)
     {
         //hash_table_array[i].unset_is_flagged_1();
         kmer_data = hash_table_array[i].get_data();

@@ -88,7 +88,7 @@ char FastaReader::get_current_read_character_at(int position)
 {
     if (current_is_forward)
     {
-        if (current_read_length > position)
+        if (int(current_read_length) > position)
         {
             return current_read.at(position);
         }
@@ -100,7 +100,7 @@ char FastaReader::get_current_read_character_at(int position)
     }
     else
     {
-        if (current_read_length > position)
+        if (int(current_read_length) > position)
         {
             return purestringfunctions::reverse_char(current_read.at(current_read_length - position - 1));
         }
