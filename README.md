@@ -47,7 +47,7 @@ Parameters are:
 -o: Path to the output file as string.
 ```
 
-Kaarme hash table has two modes: one that uses bloom filter to try to filter out k-mers that occur less than twice, and other that does not use a bloom filter. In the case you want to use bloom filter, you must provide an estimate for the number of unique k-mers in the data set as parameter -b. If you do not wish to use the bloom filter, you must provide a size for the hash table as parameter -s. If -b is provided bloom filter mode is used, otherwise the non-bloom filter mode is used. If neither parameter is provided, the program fails to run correctly. If bloom filter mode is used, you can provide the false positive rate as parameter -f. Otherwise, default value 0.01 is used.
+Kaarme hash table has two modes: one that uses Bloom filter to try to filter out k-mers that occur less than twice, and other that does not use a Bloom filter. In the case you want to use Bloom filter, you must provide an estimate for the number of unique k-mers in the data set as parameter -b. If you do not wish to use the Bloom filter, you must provide a size for the hash table as parameter -s. If -b is provided Bloom filter mode is used, otherwise the non-Bloom filter mode is used. If neither parameter is provided, the program fails to run correctly. If Bloom filter mode is used, you can provide the false positive rate as parameter -f. Otherwise, default value 0.01 is used.
 
 All other parameters are required.
 
@@ -59,9 +59,17 @@ Use the installation instructions to install the program. Then run the following
 ```
 Now the example directory should contain a file called ecoli1x-51mers.txt with all 51-mers that appear at least twice in ecoli1x.fasta.
 
-The example above uses the Kaarme without bloom filtering. To use bloom filtering, run the following example:
+The example above uses the Kaarme without Bloom filtering. To use Bloom filtering, run the following example:
 ```
 ./build/kaarme -m 2 -i 0 -k 51 -b 4000000 -t 5 -a 2 -p example/ecoli1x.fasta -o example/ecoli1x-51mers.txt
+```
+This implementation also includes a basic k-mer counter using a plain hash table instead of the Kaarme hash table. This plain hash table k-mer counter can be used by setting the hash table type parameter -m value to 0. To run the above examples using the plain hash table, run the following without Bloom filter:
+```
+./build/kaarme -m 0 -i 0 -k 51 -s 8000000 -t 5 -a 2 -p example/ecoli1x.fasta -o example/ecoli1x-51mers.txt
+```
+And the following for plain hash table with Bloom filter:
+```
+./build/kaarme -m 0 -i 0 -k 51 -b 4000000 -t 5 -a 2 -p example/ecoli1x.fasta -o example/ecoli1x-51mers.txt
 ```
 
 ## Licence
