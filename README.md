@@ -55,21 +55,21 @@ All other parameters are required.
 
 Use the installation instructions to install the program. Then run the following (assuming you are in the project root directory and Kaaarme is installed in build directory):
 ```
-./build/kaarme -m 2 -i 0 -k 51 -s 8000000 -t 5 -a 2 -p example/ecoli1x.fasta -o example/ecoli1x-51mers.txt
+./build/kaarme -m 2 -i 0 -k 51 -s 8000000 -t 5 -a 2 -p example/ecoli1x.fasta -o example/ecoli1x-51mers-kaarme-without-bloom.txt
 ```
 Now the example directory should contain a file called ecoli1x-51mers.txt with all 51-mers that appear at least twice in ecoli1x.fasta.
 
 The example above uses the Kaarme without Bloom filtering. To use Bloom filtering, run the following example:
 ```
-./build/kaarme -m 2 -i 0 -k 51 -b 4000000 -t 5 -a 2 -p example/ecoli1x.fasta -o example/ecoli1x-51mers.txt
+./build/kaarme -m 2 -i 0 -k 51 -b 4000000 -t 5 -a 2 -p example/ecoli1x.fasta -o example/ecoli1x-51mers-kaarme-with-bloom.txt
 ```
 This implementation also includes a basic k-mer counter using a plain hash table instead of the Kaarme hash table. This plain hash table k-mer counter can be used by setting the hash table type parameter -m value to 0. To run the above examples using the plain hash table, run the following without Bloom filter:
 ```
-./build/kaarme -m 0 -i 0 -k 51 -s 8000000 -t 5 -a 2 -p example/ecoli1x.fasta -o example/ecoli1x-51mers.txt
+./build/kaarme -m 0 -i 0 -k 51 -s 8000000 -t 5 -a 2 -p example/ecoli1x.fasta -o example/ecoli1x-51mers-plain-without-bloom.txt
 ```
 And the following for plain hash table with Bloom filter:
 ```
-./build/kaarme -m 0 -i 0 -k 51 -b 4000000 -t 5 -a 2 -p example/ecoli1x.fasta -o example/ecoli1x-51mers.txt
+./build/kaarme -m 0 -i 0 -k 51 -b 4000000 -t 5 -a 2 -p example/ecoli1x.fasta -o example/ecoli1x-51mers-plain-with-bloom.txt
 ```
 
 ## Licence
