@@ -1,18 +1,14 @@
 #include <iostream>
-//#include "program_runs.hpp"
 #include "parallel_parser.hpp"
-#include "functions_bloom_filter.hpp"
-#include "functions_strings.hpp"
 #include "hash_functions.hpp"
-#include "file_reader.hpp"
-#include "mybitarray.hpp"
 #include "double_bloomfilter.hpp"
 
-#include "xxhash.hpp"
-
 #include <cmath>
-//#include <boost/dynamic_bitset.hpp>
 #include <chrono>
+
+#include "external/CLI11.hpp"
+#include <filesystem>
+#include <zlib.h>
 
 /*
 ###########################################################################################################################
@@ -20,16 +16,199 @@ This is all I want to see in main(?)
 ###########################################################################################################################
 */
 
+bool is_gz(std::string& in_file){
+    std::ifstream ifs(in_file, std::ios::binary | std::ios::in);
+    uint8_t byte1, byte2;
+    ifs.read((char *)&byte1, 1);
+    ifs.read((char *)&byte2, 2);
+    return (byte1 == 0x1f) && (byte2 == 0x8b);
+}
+
+std::tuple<char, bool, bool> file_format(std::string& in_file){
+    std::tuple<char, bool, bool> res;
+    std::get<2>(res) = is_gz(in_file);
+
+    std::filesystem::path pt = std::filesystem::path(in_file);
+    std::string ext = pt.extension();
+    char sym;
+
+    if(std::get<2>(res)){//gzipped
+        while(ext==".gz"){
+            pt.replace_extension();
+            ext = pt.extension();
+        }
+        gzFile g_file;
+        g_file = gzopen(in_file.c_str(), "r");
+        gzread(g_file, &sym, 1);
+    } else {
+        std::ifstream ifs(in_file, std::ios::binary | std::ios::in);
+        ifs.read(&sym, 1);
+    }
+
+    bool ill_formed=false;
+    if(ext==".fasta" || ext==".fa"){
+        if(sym!='>'){
+            ill_formed = true;
+        }
+        std::get<0>(res) = '>';
+    }else if(ext==".fastq" || ext==".fq"){
+        if(sym!='@'){
+            ill_formed = true;
+        }
+        std::get<0>(res) = '@';
+    }else{
+        std::string dna_syms = "actgACGT";
+        if(std::find(dna_syms.begin(), dna_syms.end(), sym)==dna_syms.end()){
+            ill_formed = true;
+        }
+        std::get<0>(res) = 0;
+    }
+    std::get<1>(res) = ill_formed;
+    return res;
+}
+
+struct arguments{
+    int hash_table_mode = -1;
+    int input_mode = -1;
+    uint8_t header_symbol = 0;
+    off_t k = 0;
+    uint64_t min_slots = 0;
+    uint64_t min_abundance = 0;
+    size_t n_threads = 1;//number of threads
+
+    std::string input_file;
+    std::string output_file;
+
+    bool verbose = false;
+    bool user_wants_help = false;
+    bool debug = false;
+
+    uint64_t bloom_filter_1_size = 1000000000;
+    uint64_t bloom_filter_2_size = 1000000000;
+    uint64_t bf1hfn = 1;
+    uint64_t bf2hfn = 1;
+    double fpr = 0.01;
+    uint64_t expected_number_of_unique_kmers = 0;
+    bool use_bloom_filter = false;
+
+    bool ver{};
+    std::string version ="0.0.1v";
+};
+
+
+//class MyFormatter : public CLI::Formatter {
+//public:
+//    MyFormatter() : Formatter() {}
+//    std::string make_option_opts(const CLI::Option *) const override { return ""; }
+//};
+
+class MyFormatter : public CLI::Formatter {
+public:
+    MyFormatter() : Formatter() {}
+    std::string make_option_opts(const CLI::Option * opt) const override {
+        std::stringstream out;
+        if(!opt->get_option_text().empty()) {
+            out << " " << opt->get_option_text();
+        } else {
+            if(opt->get_type_size() != 0) {
+                if(!opt->get_type_name().empty()) out << " " << get_label(opt->get_type_name());
+                //if(!opt->get_default_str().empty()) out << "=" << opt->get_default_str();
+                if(opt->get_expected_max() == CLI::detail::expected_max_vector_size) out << " ...";
+                else if(opt->get_expected_min() > 1) out << " x " << opt->get_expected();
+
+                if(opt->get_required())
+                    out << " " << get_label("REQUIRED");
+            }
+        }
+        return out.str();
+    }
+};
+
+int parse_app(CLI::App& app, struct arguments& args) {
+
+    auto fmt = std::make_shared<MyFormatter>();
+
+    fmt->column_width(29);
+    app.formatter(fmt);
+
+    app.add_option("INPUT", args.input_file, "Input file")->check(CLI::ExistingFile)->required();
+    app.add_option("KLEN", args.k, "k-mer length")->check(CLI::PositiveNumber)->required();
+    app.add_option("TABLE_SIZE", args.min_slots, "Hash table size")->check(CLI::PositiveNumber)->required();
+
+    app.add_option("-m,--hash-table-type", args.hash_table_mode, "Hash table type: 0 for plain and 2 for kaarme (def. 2)")->check(CLI::Range(0,2))->default_val(2);
+    app.add_option("-a,--min-k-abu", args.min_abundance, "Minimum abundance threshold for the output k-mers (def. 2)")->default_val(2);
+    app.add_option("-t,--threads", args.n_threads, "Number of working threads (def. 3)")->check(CLI::Range(3,64));
+    app.add_option("-o,--output-file", args.output_file, "Output file where the k-mer counts will be stored");
+
+    auto bf_group = app.add_option_group("dummy group2");
+    auto bf_flag = bf_group->add_flag("-b,--use-bfilter", args.use_bloom_filter, "Use bloom filters to discard low-frequency k-mers");
+    auto bf_unq_kmers = bf_group->add_option("-u,--unq-kmers", args.expected_number_of_unique_kmers, "Estimated number of unique k-mers");
+    auto fpr = bf_group->add_option("-f,--bfilter-fpr", args.fpr, "Bloom filter false positive rate (def. 0.01)")->default_val(0.01);
+    bf_flag->needs(bf_unq_kmers);
+    bf_unq_kmers->needs(bf_flag);
+    fpr->needs(bf_flag);
+    bf_flag->group("Bloom filter options");
+    bf_unq_kmers->group("Bloom filter options");
+    fpr->group("Bloom filter options");
+
+    return 0;
+}
+
 int main(int argc, char const* argv[])
 {
-    // Canonical hash table mode
-    //run_mode_1(argc, argv);
-    //if(argc!=9){
-    //    std::cout<<"Some error"<<std::endl;
+    arguments args;
+    CLI::App app("Space-efficient k-mer counter");
+
+    parse_app(app, args);
+    CLI11_PARSE(app, argc, argv);
+
+    auto format = file_format(args.input_file);
+
+    if(std::get<1>(format)){
+        std::cerr<<"Input file "<<args.input_file<<" is ill-formed"<<std::endl;
+        exit(1);
+    }
+
+    args.header_symbol = std::get<0>(format);
+    bool is_gzipped = std::get<2>(format);
+
+    std::string file = std::filesystem::path(args.input_file).filename();
+    std::string fmt;
+    if(args.header_symbol=='>'){
+        fmt="FASTA";
+        args.input_mode = 0;
+    }else if(args.header_symbol=='@'){
+        fmt="FASTQ";
+        args.input_mode = 1;
+    }else{
+        fmt="ONE-STR-PER-LINE";
+        args.input_mode = 2;
+    }
+    if(args.output_file.empty()){
+        args.output_file = std::filesystem::path(args.input_file).replace_extension().filename().string()+".karme_counts";
+    }
+
+    std::cout<<"Running settings: "<<std::endl;
+    std::cout<<"  input file:               "<<file<<std::endl;
+    std::cout<<"  input format:             "<<fmt<<std::endl;
+    std::cout<<"  gzip compressed:          "<<(is_gzipped?"yes":"no")<<std::endl;
+    std::cout<<"  k-mer length:             "<<args.k<<std::endl;
+    std::cout<<"  min. abundance threshold: "<<args.min_abundance<<std::endl;
+    std::cout<<"  Hash table type:          "<<(args.hash_table_mode==0?"plain":"kaarme")<<std::endl;
+    std::cout<<"  using bloom filers:       "<<(args.use_bloom_filter?"yes":"no")<<std::endl;
+    if(args.use_bloom_filter){
+        std::cout<<"    est. unique k-mers:     "<<args.expected_number_of_unique_kmers<<std::endl;
+        std::cout<<"    false positive rate:    "<<args.fpr<<std::endl;
+    }
+    std::cout<<"  working threads:          "<<args.n_threads<<std::endl;
+    std::cout<<"  output file:              "<<args.output_file<<std::endl;
+
+    //if(args.ver){
+    //    std::cout<<args.version<<std::endl;
     //    exit(0);
     //}
 
-    int hash_table_mode = -1;
+    /*int hash_table_mode = -1;
     int input_mode = -1;
     uint8_t header_symbol = 0;
     off_t k = 0;
@@ -37,8 +216,8 @@ int main(int argc, char const* argv[])
     uint64_t min_abundance = 0;
     size_t n_threads = 3;//number of threads
 
-    std::string input_file = "";
-    std::string output_file = "";
+    std::string input_file;
+    std::string output_file;
 
     bool verbose = false;
     bool user_wants_help = false;
@@ -51,9 +230,7 @@ int main(int argc, char const* argv[])
     double fpr = 0.01;
 
     uint64_t expected_number_of_unique_kmers = 0;
-
     bool use_bloom_filter = false;
-
 
     int argi = 1;
     // --- Parse arguments ---
@@ -145,24 +322,19 @@ int main(int argc, char const* argv[])
         return 0;
     }
 
-    
-    //std::cout << "Atomic bit array 8bit integer has size of " << sizeof(std::atomic<uint8_t>) << "\n";
-    //std::cout << "Atomic bit array 64bit integer has size of " << sizeof(std::atomic<uint64_t>) << "\n";
-    //exit(0);
-
-    // Confrim parameters are acceptable
+    // Confirm parameters are acceptable
     if ((hash_table_mode < 0) || (hash_table_mode > 2))
     {
         std::cout << "Hash table mode not supported\n";
         exit(1);
     }
 
-    if (input_mode == 0){
-        header_symbol = '>';
-    } else if (input_mode == 1){
-        header_symbol = '@';
-    } else if (input_mode == 2){
-        header_symbol = 0;
+    if (args.input_mode == 0){
+        args.header_symbol = '>';
+    } else if (args.input_mode == 1){
+        args.header_symbol = '@';
+    } else if (args.input_mode == 2){
+        args.header_symbol = 0;
     } else {
         std::cout << "Input mode not supported\n";
         exit(1);
@@ -192,42 +364,39 @@ int main(int argc, char const* argv[])
     //    exit(1);
     //}
 
-    if (input_file == "")
+    if (input_file.empty())
     {
         std::cout << "Path to input file was not given\n";
         exit(1);
     }
 
-    if (output_file == "")
+    if (output_file.empty())
     {
         std::cout << "Path to output file was not given\n";
         exit(1);
-    }
+    }*/
 
-
-    n_threads = n_threads - 2;
+    args.n_threads = args.n_threads - 2;
 
     //settings for the file buffers
-    size_t active_chunks = 2*n_threads; //number of chunks in the buffer
+    size_t active_chunks = 2*args.n_threads; //number of chunks in the buffer
     off_t chunk_size = 1024*1024*10; //size in bytes for every chunk
 
-    bool is_gzipped = false;//TODO check if its gzipped
-    
     //=============================================================================================================================================
     //=============================================================================================================================================
     //        Do bloom filtering here
     //=============================================================================================================================================
     //=============================================================================================================================================
     
-    if (use_bloom_filter)
+    if(args.use_bloom_filter)
     {
         // Set bloom filter threads
-        uint64_t bf_threads = n_threads;
+        uint64_t bf_threads = args.n_threads;
         //uint64_t bf_threads = 1;
 
-        double bloom_filter_error_rate = fpr;
-        double bloom_filter_bits_min = (-double(expected_number_of_unique_kmers) * std::log(bloom_filter_error_rate)) / (std::pow(std::log(2), 2));
-        double hash_functions = (bloom_filter_bits_min / expected_number_of_unique_kmers) * std::log(2);
+        double bloom_filter_error_rate = args.fpr;
+        double bloom_filter_bits_min = (-double(args.expected_number_of_unique_kmers) * std::log(bloom_filter_error_rate)) / (std::pow(std::log(2), 2));
+        double hash_functions = (bloom_filter_bits_min / double(args.expected_number_of_unique_kmers)) * std::log(2);
         uint64_t bloom_filter_bits_2P = 2;
 
         while (bloom_filter_bits_2P < uint64_t(bloom_filter_bits_min)){
@@ -238,22 +407,22 @@ int main(int argc, char const* argv[])
         //uint64_t bloom_filter_bits = bloom_filter_bits_min;
 
         // Bloom filter sizes
-        bloom_filter_1_size = bloom_filter_bits;
+        args.bloom_filter_1_size = bloom_filter_bits;
         //bloom_filter_2_size = bloom_filter_bits;
         // Number of Bloom filter hash functions
-        bf1hfn = std::ceil(hash_functions);
-        bf2hfn = std::ceil(hash_functions);
+        args.bf1hfn = std::ceil(hash_functions);
+        args.bf2hfn = std::ceil(hash_functions);
 
         std::cout << "Bloom filter error rate " << bloom_filter_error_rate << "\n";
-        std::cout << "Bloom filter bits " << bloom_filter_1_size << "\n";
-        std::cout << "Number of hash functions " << bf1hfn << "\n";
+        std::cout << "Bloom filter bits " << args.bloom_filter_1_size << "\n";
+        std::cout << "Number of hash functions " << args.bf1hfn << "\n";
     
         // Set sizes
-        uint64_t bf1_size = bloom_filter_1_size;
+        uint64_t bf1_size = args.bloom_filter_1_size;
         //uint64_t bf2_size = bloom_filter_1_size;
 
         //const uint64_t hffs = 7;
-        DoubleAtomicDoubleBloomFilter * double_adbf = new DoubleAtomicDoubleBloomFilter(bf1_size, bf1hfn);
+        auto * double_adbf = new DoubleAtomicDoubleBloomFilter(bf1_size, args.bf1hfn);
        
         uint64_t rolling_hasher_mod = uint64_t(1) << 54;
         uint64_t bf1_multiplier = 5;
@@ -263,9 +432,9 @@ int main(int argc, char const* argv[])
 
         // Bloom filter Atomic Double Bloom Filter
         parse_input_pointer_atomic_variable_BLOOM_FILTERING<uint8_t, false>()(bf1_modmulinv, bf1_multiplier, double_adbf, bf1_size,
-                                                                    rolling_hasher_mod, bf1hfn,
-                                                                    input_file, chunk_size, active_chunks, bf_threads, k,
-                                                                    header_symbol, input_mode, debug);
+                                                                    rolling_hasher_mod, args.bf1hfn,
+                                                                    args.input_file, chunk_size, active_chunks, bf_threads, args.k,
+                                                                    args.header_symbol, args.input_mode, args.debug);
 
         //auto end_bf = std::chrono::high_resolution_clock::now();
         //auto duration_bf = std::chrono::duration_cast<std::chrono::microseconds>(end_bf - start_bf);
@@ -273,9 +442,9 @@ int main(int argc, char const* argv[])
 
         //exit(0);
 
-        if (use_bloom_filter){
-            min_slots = 2*double_adbf->get_new_in_second();
-        }
+        //if(args.use_bloom_filter){
+        args.min_slots = 2*double_adbf->get_new_in_second();
+        //}
 
         std::cout << "... Resizing bloom filter ...\n";
         auto start_resizing = std::chrono::high_resolution_clock::now();
@@ -284,40 +453,40 @@ int main(int argc, char const* argv[])
         auto resizing_duration = std::chrono::duration_cast<std::chrono::microseconds>(end_resizing - start_resizing);
         std::cout << "Time used to resize bloom filter: " << resizing_duration.count() << " microseconds\n";
         
-        if (hash_table_mode == 0)
+        if(args.hash_table_mode == 0)
         {
             if(is_gzipped){
                 parse_input_atomic_flag_BF<uint8_t, true>()(bf1_modmulinv, bf1_multiplier, double_adbf, bf1_size, 
                                                                     rolling_hasher_mod, hash_functions, 
-                                                                    input_file, output_file, chunk_size, active_chunks, n_threads, k, 
-                                                                    header_symbol, min_slots, min_abundance, input_mode);
+                                                                    args.input_file, args.output_file, chunk_size, active_chunks, args.n_threads, args.k,
+                                                                    args.header_symbol, args.min_slots, args.min_abundance, args.input_mode);
             }else{
                 parse_input_atomic_flag_BF<uint8_t, false>()(bf1_modmulinv, bf1_multiplier, double_adbf, bf1_size, 
                                                                     rolling_hasher_mod, hash_functions,
-                                                                    input_file, output_file, chunk_size, active_chunks, n_threads, k, 
-                                                                    header_symbol, min_slots, min_abundance, input_mode);
+                                                                    args.input_file, args.output_file, chunk_size, active_chunks, args.n_threads, args.k,
+                                                                    args.header_symbol, args.min_slots, args.min_abundance, args.input_mode);
             }    
         }
-        else if (hash_table_mode == 1)
+        else if (args.hash_table_mode == 1)
         {
             if(is_gzipped){
-                parse_input_pointer_atomic_flag<uint8_t, true>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode);
+                parse_input_pointer_atomic_flag<uint8_t, true>()(args.input_file, args.output_file, chunk_size, active_chunks, args.n_threads, args.k, args.header_symbol, args.min_slots, args.min_abundance, args.input_mode);
             }else{
-                parse_input_pointer_atomic_flag<uint8_t, false>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode);
+                parse_input_pointer_atomic_flag<uint8_t, false>()(args.input_file, args.output_file, chunk_size, active_chunks, args.n_threads, args.k, args.header_symbol, args.min_slots, args.min_abundance, args.input_mode);
             }
         }
-        else if (hash_table_mode == 2)
+        else if (args.hash_table_mode == 2)
         {
             if(is_gzipped){
                 parse_input_pointer_atomic_variable_BF<uint8_t, true>()(bf1_modmulinv, bf1_multiplier, double_adbf, bf1_size, 
                                                                     rolling_hasher_mod, hash_functions, 
-                                                                    input_file, output_file, chunk_size, active_chunks, n_threads, k, 
-                                                                    header_symbol, min_slots, min_abundance, input_mode, debug);
+                                                                    args.input_file, args.output_file, chunk_size, active_chunks, args.n_threads, args.k,
+                                                                    args.header_symbol, args.min_slots, args.min_abundance, args.input_mode, args.debug);
             }else{
                 parse_input_pointer_atomic_variable_BF<uint8_t, false>()(bf1_modmulinv, bf1_multiplier, double_adbf, bf1_size, 
                                                                     rolling_hasher_mod, hash_functions,
-                                                                    input_file, output_file, chunk_size, active_chunks, n_threads, k, 
-                                                                    header_symbol, min_slots, min_abundance, input_mode, debug);
+                                                                    args.input_file, args.output_file, chunk_size, active_chunks, args.n_threads, args.k,
+                                                                    args.header_symbol, args.min_slots, args.min_abundance, args.input_mode, args.debug);
             }
         }
         else
@@ -327,37 +496,37 @@ int main(int argc, char const* argv[])
 
         delete double_adbf;
     }
+
     // If bloom filter is not used
     else
     {
-        if (hash_table_mode == 0)
+        if (args.hash_table_mode == 0)
         {
             if(is_gzipped){
-                parse_input_atomic_flag<uint8_t, true>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode);
+                parse_input_atomic_flag<uint8_t, true>()(args.input_file, args.output_file, chunk_size, active_chunks, args.n_threads, args.k, args.header_symbol, args.min_slots, args.min_abundance, args.input_mode);
             }else{
-                parse_input_atomic_flag<uint8_t, false>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode);
+                parse_input_atomic_flag<uint8_t, false>()(args.input_file, args.output_file, chunk_size, active_chunks, args.n_threads, args.k, args.header_symbol, args.min_slots, args.min_abundance, args.input_mode);
             }    
         }
-        else if (hash_table_mode == 1)
+        else if (args.hash_table_mode == 1)
         {
             if(is_gzipped){
-                parse_input_pointer_atomic_flag<uint8_t, true>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode);
+                parse_input_pointer_atomic_flag<uint8_t, true>()(args.input_file, args.output_file, chunk_size, active_chunks, args.n_threads, args.k, args.header_symbol, args.min_slots, args.min_abundance, args.input_mode);
             }else{
-                parse_input_pointer_atomic_flag<uint8_t, false>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode);
+                parse_input_pointer_atomic_flag<uint8_t, false>()(args.input_file, args.output_file, chunk_size, active_chunks, args.n_threads, args.k, args.header_symbol, args.min_slots, args.min_abundance, args.input_mode);
             }
         }
-        else if (hash_table_mode == 2)
+        else if (args.hash_table_mode == 2)
         {
             if(is_gzipped){
-                parse_input_pointer_atomic_variable<uint8_t, true>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode, debug);
+                parse_input_pointer_atomic_variable<uint8_t, true>()(args.input_file, args.output_file, chunk_size, active_chunks, args.n_threads, args.k, args.header_symbol, args.min_slots, args.min_abundance, args.input_mode, args.debug);
             }else{
-                parse_input_pointer_atomic_variable<uint8_t, false>()(input_file, output_file, chunk_size, active_chunks, n_threads, k, header_symbol, min_slots, min_abundance, input_mode, debug);
+                parse_input_pointer_atomic_variable<uint8_t, false>()(args.input_file, args.output_file, chunk_size, active_chunks, args.n_threads, args.k, args.header_symbol, args.min_slots, args.min_abundance, args.input_mode, args.debug);
             }
         }
         else
         {
             std::cout << "Chosen mode not recognized\n";
         }
-
-    }    
+    }
 }

@@ -1,14 +1,11 @@
 #include "file_reader.hpp"
-
 /*
-
     File reader class implementation
-
 */
 
 
 FastaReader::FastaReader(std::string path, bool reverse) : 
-fasta_path(path), current_read_length(0), current_line_number(0), current_read_number(0), reverse_reads_enabled(reverse), current_is_forward(false)
+fasta_path(std::move(path)), current_line_number(0), current_read_number(0), reverse_reads_enabled(reverse), current_is_forward(false)
 {
     if (!reverse)
     {

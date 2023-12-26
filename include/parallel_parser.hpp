@@ -14,7 +14,6 @@
 #include <cstring>
 #include <bitset>
 #include <chrono>
-#include <boost/dynamic_bitset.hpp>
 #include "functions_bloom_filter.hpp"
 #include "double_bloomfilter.hpp"
 

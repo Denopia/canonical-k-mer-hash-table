@@ -18,7 +18,7 @@ add_executable(kaarme main.cpp
         source/functions_bloom_filter.cpp
         source/kmer.cpp
         source/kmer_hash_table.cpp
-        external/xxhash.c
+        external/xxHash/xxhash.c
         )
         
 
@@ -27,11 +27,13 @@ target_compile_options(kaarme PRIVATE
         -Wall 
         -Wextra 
         -Wpedantic
-        -ggdb
+        #-ggdb
         #-O1
         -O3
         #-ffast-math 
-        -march=native
+        #-march=native
+        -Wno-unused-variable
+        -Wno-unused-parameter
         #-flto
         #-funroll-loops
         #-finline-functions
@@ -39,5 +41,12 @@ target_compile_options(kaarme PRIVATE
         #-funswitch-loops
         #-fprefetch-loop-arrays
         )
-target_include_directories(kaarme PUBLIC include xxHash)
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        message(STATUS "Adding -march=native compiler flag due to ${CMAKE_CXX_COMPILER_ID}")
+        target_compile_options(kaarme PUBLIC -march=native -Wno-unused-but-set-variable)
+
+endif()
+
+target_include_directories(kaarme PUBLIC include external/xxHash)
                            
