@@ -131,26 +131,27 @@ int parse_app(CLI::App& app, struct arguments& args) {
     fmt->column_width(29);
     app.formatter(fmt);
 
-    app.add_option("INPUT", args.input_file, "Input file")->check(CLI::ExistingFile)->required();
+    app.add_option("INPUT", args.input_file, "Input file (automatic format detection)")->check(CLI::ExistingFile)->required();
     app.add_option("KLEN", args.k, "k-mer length")->check(CLI::PositiveNumber)->required();
-    app.add_option("TABLE_SIZE", args.min_slots, "Hash table size")->check(CLI::PositiveNumber)->required();
 
     app.add_option("-m,--hash-table-type", args.hash_table_mode, "Hash table type: 0 for plain and 2 for kaarme (def. 2)")->check(CLI::Range(0,2))->default_val(2);
     app.add_option("-a,--min-k-abu", args.min_abundance, "Minimum abundance threshold for the output k-mers (def. 2)")->default_val(2);
     app.add_option("-t,--threads", args.n_threads, "Number of working threads (def. 3)")->check(CLI::Range(3,64));
     app.add_option("-o,--output-file", args.output_file, "Output file where the k-mer counts will be stored");
+    auto *bf_flag = app.add_flag("-b,--use-bfilter", args.use_bloom_filter, "Use bloom filters to discard unique k-mers");
+    auto fpr = app.add_option("-f,--bfilter-fpr", args.fpr, "Bloom filter false positive rate (def. 0.01)")->check(CLI::Range(0.001,0.999))->default_val(0.01);
 
-    auto bf_group = app.add_option_group("dummy group2");
-    auto bf_flag = bf_group->add_flag("-b,--use-bfilter", args.use_bloom_filter, "Use bloom filters to discard low-frequency k-mers");
-    auto bf_unq_kmers = bf_group->add_option("-u,--unq-kmers", args.expected_number_of_unique_kmers, "Estimated number of unique k-mers");
-    auto fpr = bf_group->add_option("-f,--bfilter-fpr", args.fpr, "Bloom filter false positive rate (def. 0.01)")->default_val(0.01);
+    auto ex_group = app.add_option_group("dummy group2");
+    auto *ht_size = ex_group->add_option("-s,--hash-tab-size", args.min_slots, "Hash table size");
+    auto bf_unq_kmers = ex_group->add_option("-u,--unq-kmers", args.expected_number_of_unique_kmers, "Estimated number of unique k-mers");
+    ex_group->require_option(1);
+
     bf_flag->needs(bf_unq_kmers);
     bf_unq_kmers->needs(bf_flag);
     fpr->needs(bf_flag);
-    bf_flag->group("Bloom filter options");
-    bf_unq_kmers->group("Bloom filter options");
-    fpr->group("Bloom filter options");
 
+    ht_size->group("Mandatory params");
+    bf_unq_kmers->group("Mandatory params");
     return 0;
 }
 
@@ -194,11 +195,13 @@ int main(int argc, char const* argv[])
     std::cout<<"  gzip compressed:          "<<(is_gzipped?"yes":"no")<<std::endl;
     std::cout<<"  k-mer length:             "<<args.k<<std::endl;
     std::cout<<"  min. abundance threshold: "<<args.min_abundance<<std::endl;
-    std::cout<<"  Hash table type:          "<<(args.hash_table_mode==0?"plain":"kaarme")<<std::endl;
+    std::cout<<"  hash table type:          "<<(args.hash_table_mode==0?"plain":"kaarme")<<std::endl;
     std::cout<<"  using bloom filers:       "<<(args.use_bloom_filter?"yes":"no")<<std::endl;
     if(args.use_bloom_filter){
         std::cout<<"    est. unique k-mers:     "<<args.expected_number_of_unique_kmers<<std::endl;
         std::cout<<"    false positive rate:    "<<args.fpr<<std::endl;
+    }else{
+        std::cout<<"    est. hash table size:   "<<args.min_slots<<std::endl;
     }
     std::cout<<"  working threads:          "<<args.n_threads<<std::endl;
     std::cout<<"  output file:              "<<args.output_file<<std::endl;
@@ -413,9 +416,11 @@ int main(int argc, char const* argv[])
         args.bf1hfn = std::ceil(hash_functions);
         args.bf2hfn = std::ceil(hash_functions);
 
+#ifdef DEBUG
         std::cout << "Bloom filter error rate " << bloom_filter_error_rate << "\n";
         std::cout << "Bloom filter bits " << args.bloom_filter_1_size << "\n";
         std::cout << "Number of hash functions " << args.bf1hfn << "\n";
+#endif
     
         // Set sizes
         uint64_t bf1_size = args.bloom_filter_1_size;
@@ -428,7 +433,9 @@ int main(int argc, char const* argv[])
         uint64_t bf1_multiplier = 5;
         uint64_t bf1_modmulinv = mathfunctions::modular_multiplicative_inverse_coprimes(bf1_multiplier, rolling_hasher_mod);
 
+#ifdef DEBUG
         std::cout << "Modular multiplicative inverse for A=" << bf1_multiplier << " and M=" << rolling_hasher_mod << " is " << bf1_modmulinv << "\n";
+#endif
 
         // Bloom filter Atomic Double Bloom Filter
         parse_input_pointer_atomic_variable_BLOOM_FILTERING<uint8_t, false>()(bf1_modmulinv, bf1_multiplier, double_adbf, bf1_size,
@@ -446,18 +453,22 @@ int main(int argc, char const* argv[])
         args.min_slots = 2*double_adbf->get_new_in_second();
         //}
 
+#ifdef DEBUG
         std::cout << "... Resizing bloom filter ...\n";
+#endif
         auto start_resizing = std::chrono::high_resolution_clock::now();
         double_adbf->resize();
         auto end_resizing = std::chrono::high_resolution_clock::now();
         auto resizing_duration = std::chrono::duration_cast<std::chrono::microseconds>(end_resizing - start_resizing);
+#ifdef DEBUG
         std::cout << "Time used to resize bloom filter: " << resizing_duration.count() << " microseconds\n";
-        
+#endif
+
         if(args.hash_table_mode == 0)
         {
             if(is_gzipped){
                 parse_input_atomic_flag_BF<uint8_t, true>()(bf1_modmulinv, bf1_multiplier, double_adbf, bf1_size, 
-                                                                    rolling_hasher_mod, hash_functions, 
+                                                                    rolling_hasher_mod, hash_functions,
                                                                     args.input_file, args.output_file, chunk_size, active_chunks, args.n_threads, args.k,
                                                                     args.header_symbol, args.min_slots, args.min_abundance, args.input_mode);
             }else{
