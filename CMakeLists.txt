@@ -21,7 +21,6 @@ add_executable(kaarme main.cpp
         external/xxHash/xxhash.c
         )
         
-target_link_libraries(kaarme pthread z)
 
 target_compile_options(kaarme PRIVATE
         -Wall 
@@ -48,7 +47,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 
 if(UNIX AND NOT APPLE)
-        target_link_libraries(kaarme LINK_PUBLIC stdc++fs)
+        target_link_libraries(kaarme pthread z stdc++fs)
+else()
+        target_link_libraries(kaarme pthread z)
 endif()
 
 target_include_directories(kaarme PUBLIC include external/xxHash)
