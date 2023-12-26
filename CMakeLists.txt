@@ -21,8 +21,8 @@ add_executable(kaarme main.cpp
         external/xxHash/xxhash.c
         )
         
-
 target_link_libraries(kaarme pthread z)
+
 target_compile_options(kaarme PRIVATE
         -Wall 
         -Wextra 
@@ -45,7 +45,10 @@ target_compile_options(kaarme PRIVATE
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         message(STATUS "Adding -march=native compiler flag due to ${CMAKE_CXX_COMPILER_ID}")
         target_compile_options(kaarme PUBLIC -march=native -Wno-unused-but-set-variable)
+endif()
 
+if(UNIX AND NOT APPLE)
+        target_link_libraries(kaarme LINK_PUBLIC stdc++fs)
 endif()
 
 target_include_directories(kaarme PUBLIC include external/xxHash)
