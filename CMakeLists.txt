@@ -5,8 +5,6 @@ project(KaarmeKMerHashtable)
 
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
-#set(CMAKE_CXX_STANDARD_REQUIRED True)
-#set(EXTRA_INCLUDES include)
 
 add_executable(kaarme main.cpp
         source/file_reader.cpp

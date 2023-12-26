@@ -8,7 +8,7 @@ Supported input types are fasta and plain text (one read per line) files.
 
 ## Requirements
 * CMake 3.10
-* C++20
+* C++17
 
 (This program has been tested only on Linux based OS)
 
