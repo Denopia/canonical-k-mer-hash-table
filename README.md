@@ -1,6 +1,6 @@
 # Kaarme
 
-Kaarme is a memory-efficient hash table implementation for long k-mers. In this program its functionality is demonstrated with a k-mer counter.
+Kaarme is a memory-efficient hash table implementation for long k-mers. In this software, its functionality is demonstrated with a k-mer counter.
 
 Kaarme k-mer counter is (partially) multithreaded, and counts only canonical k-mers.
 
@@ -10,7 +10,7 @@ Supported input types are fasta and plain text (one read per line) files.
 * CMake 3.10
 * C++17
 
-(This program has been tested only on Linux based OS)
+(This program has been tested only on Linux-based OS)
 
 ## Installation
 
@@ -63,24 +63,24 @@ false positive rate as parameter -f. Otherwise, default value 0.01 is used.
 
 ## Example
 
-Use the installation instructions to install the program. Then run the following (assuming you are in the project root directory and Kaaarme is installed in build directory):
+Use the installation instructions to install the program. Then run the following (assuming you are in the project root directory and Kaarme is installed in build directory):
 ```
-./build/kaarme example/ecoli1x.fasta 51 -s 8000000 -t 3
+./build/kaarme example/ecoli1x.fasta 51 -s 8000000 -t 3 -o example/ecoli1x-51mers.txt
 ```
 Now the example directory should contain a file called ecoli1x-51mers.txt with all 51-mers that appear at least twice in ecoli1x.fasta.
 
 The example above uses the Kaarme without Bloom filtering. To use Bloom filtering, run the following example:
 ```
-./build/kaarme example/ecoli1x.fasta 51 -t 3 -u 4000000 --use-bfilter 
+./build/kaarme example/ecoli1x.fasta 51 -t 3 -u 4000000 --use-bfilter -o example/ecoli1x-51mers.txt 
 ```
 
 This implementation also includes a basic k-mer counter using a plain hash table instead of the Kaarme hash table. This plain hash table k-mer counter can be used by setting the hash table type parameter -m value to 0. To run the above examples using the plain hash table, run the following without Bloom filter:
 ```
-./build/kaarme example/ecoli1x.fasta 51 -s 8000000 -t 3 -m 0
+./build/kaarme example/ecoli1x.fasta 51 -s 8000000 -t 3 -m 0 -o example/ecoli1x-51mers.txt
 ```
 And the following for plain hash table with Bloom filter:
 ```
-./build/kaarme example/ecoli1x.fasta 51 -t 3 -m 0 -u 4000000 --use-bfilter
+./build/kaarme example/ecoli1x.fasta 51 -t 3 -m 0 -u 4000000 --use-bfilter -o example/ecoli1x-51mers.txt
 ```
 
 ## Licence
