@@ -4,23 +4,26 @@
 #include <cstdint>
 #include <cstring> // for memset
 
-
-
 class Atomic8
 {
     public:
         std::atomic<uint8_t> value;
+
         Atomic8():value(0){};
-        ~Atomic8(){};
+
+        Atomic8(Atomic8&& other) noexcept : value(other.value.load()){}
+
+        ~Atomic8()= default;
+
         void set(uint8_t nv){
             uint8_t ev = value.load(std::memory_order_acquire);
             while(!value.compare_exchange_strong(ev, nv, std::memory_order_acq_rel,std::memory_order_relaxed)){}
         }
+
         uint8_t get(){
             return value.load(std::memory_order_acquire);
         }
 };
-
 
 // Atomic bit array. INTERLEAVED AND SPLIT IN TWO
 // Atomic bit array
@@ -37,12 +40,11 @@ class MyAtomicBitArrayFT
         bool squeezed;
 
     public:
-        MyAtomicBitArrayFT(uint64_t size);
+        explicit MyAtomicBitArrayFT(uint64_t size);
         ~MyAtomicBitArrayFT();
         bool test(uint64_t i);
         bool set(uint64_t i);
         void squeeze();
-
 };
 
 MyAtomicBitArrayFT::MyAtomicBitArrayFT(uint64_t size)
@@ -122,7 +124,6 @@ bool MyAtomicBitArrayFT::set(uint64_t i)
     return true;
 }
 
-
 void MyAtomicBitArrayFT::squeeze()
 {
     squeezed = true;
@@ -160,7 +161,6 @@ void MyAtomicBitArrayFT::squeeze()
     delete[] array2;
 }
 
-
 // Atomic bit array
 class MyAtomicBitVector
 {
@@ -173,7 +173,7 @@ class MyAtomicBitVector
         uint64_t size;
 
     public:
-        MyAtomicBitVector(uint64_t s);
+        explicit MyAtomicBitVector(uint64_t s);
         ~MyAtomicBitVector();
         bool test(uint64_t i);
         bool set(uint64_t i);

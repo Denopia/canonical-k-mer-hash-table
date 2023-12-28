@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstdint>
-#include <xxhash.h>
+#include "../external/xxHash/xxhash.h"
+#include <atomic>
 #include <vector>
 //#include <sdsl/bit_vectors.hpp>
 #include <random>  // Include the <random> header
@@ -151,7 +152,7 @@ public:
             if (insert_in_second(hash_values, set_second_bits)){
                 // If insertion was succesful, increase count
                 //std::cout << "Increase second count1\n";
-                uint64_t nisu = new_in_second.load(std::memory_order_acquire);
+                size_t nisu = new_in_second.load(std::memory_order_acquire);
                 while(!new_in_second.compare_exchange_strong(nisu, nisu+1, std::memory_order_acq_rel,std::memory_order_relaxed)){}
             }
         } else {
@@ -160,17 +161,17 @@ public:
             if (insert_in_first(hash_values, set_first_bits)){
                 //std::cout << "-inserted succesfully\n";
                 // If insertion was succesful, increase count
-                uint64_t nifu = new_in_first.load(std::memory_order_acquire);
+                size_t nifu = new_in_first.load(std::memory_order_acquire);
                 while(!new_in_first.compare_exchange_strong(nifu, nifu+1, std::memory_order_acq_rel,std::memory_order_relaxed)){}
             // It was inserted by someone else so we need to put it in the second filter
             } else {
-                uint64_t fails = failed_insertions_in_first.load(std::memory_order_acquire);
+                size_t fails = failed_insertions_in_first.load(std::memory_order_acquire);
                 while(!failed_insertions_in_first.compare_exchange_strong(fails, fails+1, std::memory_order_acq_rel,std::memory_order_relaxed)){}
                 //std::cout << "-insertion failed\n";
                 if (insert_in_second(hash_values, set_second_bits)){
                     // If insertion was succesful, increase count
                     //std::cout << "Increase second count2\n";
-                    uint64_t nisu = new_in_second.load(std::memory_order_acquire);
+                    size_t nisu = new_in_second.load(std::memory_order_acquire);
                     while(!new_in_second.compare_exchange_strong(nisu, nisu+1, std::memory_order_acq_rel,std::memory_order_relaxed)){}
                 }
             }
@@ -184,7 +185,7 @@ public:
 
 private:
     // Function to generate random seeds
-    std::vector<std::size_t> generate_seeds(std::size_t numSeeds) {
+    static std::vector<std::size_t> generate_seeds(std::size_t numSeeds) {
         std::vector<std::size_t> result;
         std::random_device rd;
         std::mt19937_64 gen(rd());
@@ -197,7 +198,7 @@ private:
         return result;
     }
 
-    std::vector<std::size_t> generate_seeds_2(std::size_t numSeeds) {
+    static std::vector<std::size_t> generate_seeds_2(std::size_t numSeeds) {
         std::vector<std::size_t> result;
         std::vector<uint64_t> seeds = {2411, 3253, 1061, 1129, 2269, 7309, 3491, 8237, 6359, 8779,
                                         6553, 5443, 2447, 8999, 8623, 5779, 1879, 2357, 5087, 5393,
@@ -250,7 +251,7 @@ public:
     }
     */
     DoubleAtomicDoubleBloomFilter(std::size_t size, std::size_t numHashFunctions)
-        : resized(false), mask(size - 1), numHashFunctions(numHashFunctions), new_in_first(0), new_in_second(0), failed_insertions_in_first(0) {
+        : mask(size - 1), numHashFunctions(numHashFunctions), new_in_first(0), new_in_second(0), failed_insertions_in_first(0), resized(false) {
         seeds = generate_seeds_2(numHashFunctions);  // Generate random seeds
         bitArray = new MyAtomicBitArrayFT(2*size);
         //std::cout << "numver of hash functionsis " << numHashFunctions << "\n";
@@ -385,7 +386,7 @@ public:
             if (insert_in_second(hash_values, set_second_bits)){
                 // If insertion was succesful, increase count
                 //std::cout << "Increase second count1\n";
-                uint64_t nisu = new_in_second.load(std::memory_order_acquire);
+                size_t nisu = new_in_second.load(std::memory_order_acquire);
                 while(!new_in_second.compare_exchange_strong(nisu, nisu+1, std::memory_order_acq_rel,std::memory_order_relaxed)){}
             }
         } else {
@@ -394,17 +395,17 @@ public:
             if (insert_in_first(hash_values, set_first_bits)){
                 //std::cout << "-inserted succesfully\n";
                 // If insertion was succesful, increase count
-                uint64_t nifu = new_in_first.load(std::memory_order_acquire);
+                size_t nifu = new_in_first.load(std::memory_order_acquire);
                 while(!new_in_first.compare_exchange_strong(nifu, nifu+1, std::memory_order_acq_rel,std::memory_order_relaxed)){}
             // It was inserted by someone else so we need to put it in the second filter
             } else {
-                uint64_t fails = failed_insertions_in_first.load(std::memory_order_acquire);
+                size_t fails = failed_insertions_in_first.load(std::memory_order_acquire);
                 while(!failed_insertions_in_first.compare_exchange_strong(fails, fails+1, std::memory_order_acq_rel,std::memory_order_relaxed)){}
                 //std::cout << "-insertion failed\n";
                 if (insert_in_second(hash_values, set_second_bits)){
                     // If insertion was succesful, increase count
                     //std::cout << "Increase second count2\n";
-                    uint64_t nisu = new_in_second.load(std::memory_order_acquire);
+                    size_t nisu = new_in_second.load(std::memory_order_acquire);
                     while(!new_in_second.compare_exchange_strong(nisu, nisu+1, std::memory_order_acq_rel,std::memory_order_relaxed)){}
                 }
             }
@@ -415,7 +416,7 @@ public:
 
 private:
     // Function to generate random seeds
-    std::vector<std::size_t> generate_seeds(std::size_t numSeeds) {
+    static std::vector<std::size_t> generate_seeds(std::size_t numSeeds) {
         std::vector<std::size_t> result;
         std::random_device rd;
         std::mt19937_64 gen(rd());
@@ -428,7 +429,7 @@ private:
         return result;
     }
 
-    std::vector<std::size_t> generate_seeds_2(std::size_t numSeeds) {
+    static std::vector<std::size_t> generate_seeds_2(std::size_t numSeeds) {
         std::vector<std::size_t> result;
         std::vector<uint64_t> seeds = {2411, 3253, 1061, 1129, 2269, 7309, 3491, 8237, 6359, 8779,
                                         6553, 5443, 2447, 8999, 8623, 5779, 1879, 2357, 5087, 5393,
@@ -467,11 +468,11 @@ public:
         seeds = generate_seeds_2(numHashFunctions);  // Generate random seeds
     }
 
-    uint64_t get_new_in_first(){
+    [[nodiscard]] uint64_t get_new_in_first() const{
         return new_in_first;
     }
 
-    uint64_t get_new_in_second(){
+    [[nodiscard]] int64_t get_new_in_second() const {
         return new_in_second;
     }
 
@@ -558,7 +559,7 @@ public:
 
 private:
     // Function to generate random seeds
-    std::vector<std::size_t> generate_seeds(std::size_t numSeeds) {
+    static std::vector<std::size_t> generate_seeds(std::size_t numSeeds) {
         std::vector<std::size_t> result;
         std::random_device rd;
         std::mt19937_64 gen(rd());
@@ -571,7 +572,7 @@ private:
         return result;
     }
 
-    std::vector<std::size_t> generate_seeds_2(std::size_t numSeeds) {
+    static std::vector<std::size_t> generate_seeds_2(std::size_t numSeeds) {
         std::vector<std::size_t> result;
         std::vector<uint64_t> seeds = {2411, 3253, 1061, 1129, 2269, 7309, 3491, 8237, 6359, 8779,
                                         6553, 5443, 2447, 8999, 8623, 5779, 1879, 2357, 5087, 5393,
