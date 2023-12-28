@@ -10,7 +10,7 @@ Supported input types are fasta and plain text (one read per line) files.
 * CMake 3.10
 * C++17
 
-(This program has been tested only on Linux-based OS)
+This program has been tested only on OSx and Linux-based OS
 
 ## Installation
 

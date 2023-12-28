@@ -185,8 +185,9 @@ int main(int argc, char const* argv[])
         fmt="ONE-STR-PER-LINE";
         args.input_mode = 2;
     }
+
     if(args.output_file.empty()){
-        args.output_file = std::filesystem::path(args.input_file).replace_extension().filename().string()+".karme_counts";
+        args.output_file = std::filesystem::path(args.input_file).replace_extension().filename().string()+".kaarme_counts";
     }
 
     std::cout<<"Running settings: "<<std::endl;
